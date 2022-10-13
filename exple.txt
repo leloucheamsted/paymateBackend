@@ -1,0 +1,2953 @@
+// package main
+
+// import (
+// 	"archive/zip"
+// 	"context"
+// 	"encoding/json"
+// 	"fmt"
+// 	"io"
+// 	"io/ioutil"
+// 	"log"
+// 	"net/http"
+// 	"os"
+// 	"path/filepath"
+// 	"strconv"
+// 	"strings"
+// 	"sync"
+
+// 	// "strings"
+// 	"time"
+
+// 	"cloud.google.com/go/firestore"
+// 	"github.com/gin-contrib/cors"
+// 	"github.com/gin-gonic/gin"
+// 	"golang.org/x/oauth2/google"
+
+// 	firebase "firebase.google.com/go/v4"
+// 	"firebase.google.com/go/v4/auth"
+// 	"github.com/google/uuid"
+
+// 	// "google.golang.org/api/iterator"
+// 	"google.golang.org/api/iterator"
+// 	"google.golang.org/api/option"
+
+// 	"cloud.google.com/go/storage"
+
+// 	speech "cloud.google.com/go/speech/apiv1"
+// 	//  speechpb "google.golang.org/genproto/googleapis/cloud/speech/v1"
+// )
+
+// const valName = "USER_UID"
+
+// var key = ""
+// var wg sync.WaitGroup
+// var mutex = &sync.Mutex{}
+
+// const root_path = "/tmp"
+// const bucket = "deskvantage-fb75f.appspot.com"
+
+// type repo struct{}
+
+// var app *firebase.App
+// var firestoreClient *firestore.Client
+// var storageClient *storage.Client
+// var speechClient *speech.Client
+// var path []interface{} // array of path
+
+// type (
+// 	File struct {
+// 		uiud             string `firebase:"uiud"`
+// 		Ext              string `firebase:"extension"`
+// 		type_object      string `fireabse:"type"`
+// 		date_de_creation string `firebase:"date de creation"`
+// 		name             string `firebase:"Name"`
+// 		url              string `firebase:"Url"`
+// 	}
+// 	FileData struct {
+// 		uiud string
+// 		Ext  string
+// 	}
+// 	FolderStructure struct {
+// 		folderName string `firebase:"folderName"`
+// 		Parent_id  string `firebase:"Parent_id"`
+// 	}
+// 	FolderPath struct {
+// 		path         string
+// 		iscollection bool
+// 	}
+// )
+
+// func CORSMiddleware() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+
+// 		c.Header("Access-Control-Allow-Origin", "*")
+// 		c.Header("Access-Control-Allow-Credentials", "true")
+// 		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+// 		c.Header("Access-Control-Allow-Methods", "POST,HEAD,PATCH, OPTIONS, GET, PUT")
+// 		c.Header("Exposed", "Content-Length, Content-Range")
+// 		if c.Request.Method == "OPTIONS" {
+// 			c.AbortWithStatus(204)
+// 			return
+// 		}
+
+// 		c.Next()
+// 	}
+// }
+
+// func main() {
+
+// 	ctx := context.Background()
+// 	credFileName := "./deskvantage-fb75f-firebase-adminsdk-s0n9e-f2397bb2c6.json"
+// 	opt := option.WithCredentialsFile(credFileName)
+// 	var err error
+// 	app, err = firebase.NewApp(ctx, nil, opt)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// 	firestoreClient, err = app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	defer firestoreClient.Close()
+// 	// Creates a client.
+// 	credFileNameStorage := "./deskvantage-fb75f-b2bd6022e899.json"
+// 	optStorage := option.WithCredentialsFile(credFileNameStorage)
+// 	storageClient, err = storage.NewClient(ctx, optStorage)
+// 	if err != nil {
+// 		log.Fatalf("Failed to create client: %v", err)
+// 	}
+// 	defer storageClient.Close()
+
+// 	// Creates a client.
+// 	speechClient, err = speech.NewClient(ctx, optStorage)
+// 	if err != nil {
+// 		log.Fatalf("Failed to create client: %v", err)
+// 	}
+// 	defer speechClient.Close()
+
+// 	r := gin.Default()
+
+// 	r.Use(cors.New(cors.Config{
+// 		AllowMethods:     []string{"GET", "POST", "OPTIONS", "PUT", "DELETE"},
+// 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "User-Agent", "Referrer", "Host", "Authorization", "token"},
+// 		ExposeHeaders:    []string{"Content-Length", "Authorization", "token"},
+// 		AllowCredentials: true,
+
+// 		AllowAllOrigins: true,
+// 		MaxAge:          8640024576987,
+// 	}))
+// 	middleware, err := newMiddleware()
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	r.GET("/", func(c *gin.Context) {
+
+// 		c.JSON(200, gin.H{
+// 			"message": "pong",
+// 		})
+// 	})
+
+// 	//verif := verifyIDToke(ctx, app, "eyJhbGciOiJSUzI1NiIsImtpZCI6ImFhZmE4MTJiMTY5NzkxODBmYzc4MjA5ZWE3Y2NhYjkxZTY4NDM2NTkiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiY2FicmF1bGUga2V0Y2hhbmdhIiwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FBVFhBSnl0UmNJVkk5VUM4WHVNOVB0MkwxUmZ5TDVreXhERUNEblBTRU5HPXM5Ni1jIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2Rlc2t2YW50YWdlLWZiNzVmIiwiYXVkIjoiZGVza3ZhbnRhZ2UtZmI3NWYiLCJhdXRoX3RpbWUiOjE2NDk3NTU2OTMsInVzZXJfaWQiOiJXNmVhTjFtRmtYTkFCU1ZKSW03S2t4WjFkTTIyIiwic3ViIjoiVzZlYU4xbUZrWE5BQlNWSkltN0treFoxZE0yMiIsImlhdCI6MTY0OTc1NTY5MywiZXhwIjoxNjQ5NzU5MjkzLCJlbWFpbCI6ImNhYnJhdWxla2V0Y2hhbmdhQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJmaXJlYmFzZSI6eyJpZGVudGl0aWVzIjp7Imdvb2dsZS5jb20iOlsiMTAzMzAxNzc0MDA2MzQ0NzM4Mzc5Il0sImVtYWlsIjpbImNhYnJhdWxla2V0Y2hhbmdhQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6Imdvb2dsZS5jb20ifX0.rPrxLa7CTov-j4dh5pr50omaLpoNRFgr-oI-21B5MeawDRqUxdd9dG6Ol7k2aFvKNVF7qsU4YVTJNxn-BRANqK-twqU7sx41yJ-DicRi9maTPKrdi6hFiyMoY5Sua-GGOsEYP2zFIG1i1hGb3-avZMD0-rvwqEZWzFZ4hveP87vBf3vLHRazfVXp0ysxX9IUkbBtERYoanuRIwSAeGX81w5ik5VzxsyU-S1bTT7YNhK9C89tY8erg_rmQYT09vDMGd_Ck3h8dK3LRnS-FYEz19lbBFwyMCaFurs2aeEuzVClMrQqLazZ1JNDjD6Dctab8O5yGxBbHbhiirwt2qlz2g")
+// 	// log.Println(verif)
+// 	r.Use(CORSMiddleware())
+// 	r.GET("/verify/:token", middleware.verifyToken)
+// 	r.Use(middleware.MiddlewareFunc())
+// 	go r.POST("/newuser", createUserStockage) // creation de l'espace de stockage de l'utilisateur
+// 	r.POST("/spaceuser/:myEmail", UserSpace)  // ouverture de  l'espace de stockage de l'utilisateur
+// 	//	go r.GET("/folder/list", UserSpace)       // ouverture de  l'espace de stockage de l'utilisateur
+// 	go r.POST("/addfolder", createFolder) // creation d'un nouveau dossier
+// 	go r.POST("/savefile", savefile)
+// 	r.DELETE("/deletefile", deleteFile)
+// 	//wg.Add(1)                                             // Ajout d'un fichier dans un dossier
+// 	go r.POST("/getAllContent/:folderName", GetFileOrFolder) // Recuperation des fichiers et dossiers d'un dossier
+// 	//wg.Wait()
+// 	go r.GET("/getfile", ReadFile)                   // Lecture d'un fichier
+// 	go r.DELETE("/deletefolder/:uiud", deleteFolder) // Suppression d'un dossier
+// 	go r.POST("/upload/folder", UploadFolder)
+// 	go r.POST("/upload/file", savefileOne)
+// 	go r.POST("/getUrl", generateV4GetObjectSignedURL)
+// 	go r.POST("/paste", pasteFileOrFolder)
+// 	go r.POST("/save", savefire) // enregistrer sur firebase
+// 	go r.POST("/searchfile", getfile)
+// 	go r.POST("/copyfile", copyObject) // copy file to a new path folder
+// 	go r.POST("/getdata", GetFolderMetaData)
+// 	go r.GET("/userInfos", GetConfigUser)
+// 	go r.POST("/changePermission", ChangeUserDefaultPermission)
+// 	go r.POST("/share", ShareFolderOrFile)
+// 	go r.GET("/listSharedFolder", GetShareFile)
+// 	go r.POST("/downloadFolder", testDownload)
+// 	go r.GET("/zipfile", func(c *gin.Context) {
+// 		c.Writer.Header().Set("Content-type", "application/octet-stream")
+// 		c.Stream(func(w io.Writer) bool {
+// 			// Create a zip archive.
+// 			ar := zip.NewWriter(w)
+// 			log.Println("le fichier zip a ete creer")
+// 			// Add some files to the archive.
+// 			// tmp file
+// 			tmpFile, err := ioutil.TempFile("csv", "filename.txt")
+// 			if err != nil {
+// 				log.Fatal(err)
+// 			}
+// 			log.Println("le fichier tmp a ete creer")
+// 			defer os.Remove(tmpFile.Name())
+
+// 			// write into tmp file
+// 			log.Println("ecriture dans le fichier tmp")
+// 			if _, err = tmpFile.Write([]byte("Hello World")); err != nil {
+// 				log.Fatal(err)
+// 			}
+
+// 			file1, _ := os.Open("csv/filename.webp")
+
+// 			c.Writer.Header().Set("Content-Disposition", "attachment; filename='filename.zip'")
+
+// 			url := "https://img.passeportsante.net/1200x675/2021-05-06/i106625-signes-bonne-sante-chien.webp"
+// 			response, e := http.Get(url)
+// 			if e != nil {
+// 				log.Fatal(e)
+// 			}
+// 			defer response.Body.Close()
+
+// 			// create file
+// 			f1, _ := ar.Create("csv/test.webp")
+// 			io.Copy(f1, response.Body)
+// 			io.Copy(file1, response.Body)
+// 			f2, _ := ar.Create("csv/filename2.webp")
+// 			io.Copy(f2, file1)
+
+// 			ar.Close()
+// 			c.JSON(200, gin.H{"status": "success", "url": ar})
+// 			return false
+
+// 			//log.Println(branchname)
+// 		})
+// 	})
+// 	go r.GET("/download", func(c *gin.Context) {
+// 		// save file from url
+// 		url := "https://img.passeportsante.net/1200x675/2021-05-06/i106625-signes-bonne-sante-chien.webp"
+// 		response, e := http.Get(url)
+// 		if e != nil {
+// 			log.Fatal(e)
+// 		}
+// 		defer response.Body.Close()
+// 		// create file
+// 		file, err := os.Create("csv/test.jpg")
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 		defer file.Close()
+// 		// write to file
+// 		_, err = io.Copy(file, response.Body)
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 		c.Header("Content-Description", "File Transfer")
+// 		c.Header("Content-Transfer-Encoding", "binary")
+// 		c.Header("Content-Disposition", "attachment; filename="+file.Name())
+// 		c.Header("Content-Type", "application/octet-stream")
+// 		c.File(file.Name())
+// 		c.JSON(200, gin.H{"status": "success", "url": file})
+// 	})
+// 	//	getUidUser("leloucheamsted@gmail.com")
+// 	// var colorInHex string = randomcolor.GetRandomColorInHex()
+// 	// var colorInRGB randomcolor.RGBColor = randomcolor.GetRandomColorInRgb()
+// 	// var colorInHSV randomcolor.HSVColor = randomcolor.GetRandomColorInHSV()
+// 	// log.Println(colorInHSV, colorInRGB, colorInHex)
+// 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
+
+// }
+
+// func getUidUser(email string) string {
+// 	ctx := context.Background()
+// 	var ID string
+// 	var data map[string]interface{}
+// 	client, err := app.Firestore(ctx)
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Where("email", "==", email).Documents(ctx)
+
+// 	for {
+
+// 		doc, err := doc.Next()
+
+// 		if err == iterator.Done {
+// 			break
+// 		}
+
+// 		if err != nil {
+// 			log.Fatalf("Failed to iterate: %v", err)
+// 		}
+// 		data = doc.Data()
+// 		ID = doc.Ref.ID
+// 	}
+// 	if len(data) == 0 {
+// 		log.Println(ID)
+// 		log.Println("User not have parameter")
+// 		log.Print("data length ")
+// 		log.Println(len(data))
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(ID).Set(ctx, map[string]interface{}{
+// 			"date_ajout":       time.Now().Format("2006-01-02 15:04:05"),
+// 			"email":            email,
+// 			"permission_level": 0,
+// 		})
+// 		log.Println(v)
+// 		if err != nil {
+
+// 		}
+// 	}
+// 	if err != nil {
+
+// 	}
+// 	log.Println("Mon iuid", ID)
+// 	return ID
+// }
+
+// func testAddData() {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	data := map[string]interface{}{
+// 		"date_ajout":       time.Now().Format("2006-01-02 15:04:05"),
+// 		"email":            "email",
+// 		"permission_level": 0,
+// 	}
+// 	//data = append(data, )
+// 	log.Println(data)
+// 	sharedRequest := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc("8uADPIMilLWfqfLz9nhS6n2VZVV2").Collection("DOSSIER").Doc("18bc0ce2-d8f4-49e5-a38e-ee96be745f05")
+// 	_, err = sharedRequest.Update(ctx, []firestore.Update{
+// 		{Path: "shared_with", Value: firestore.ArrayUnion(data)},
+// 	})
+// 	if err != nil {
+// 		log.Println("error", err)
+// 		log.Println(data)
+// 	} else {
+// 		log.Println(data)
+// 	}
+// 	log.Println("Request finish to updated shared files")
+// 	if err != nil {
+
+// 	}
+// }
+
+// // / ================= Share file =============///
+// func GetShareFile(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	var paths []map[string]interface{}
+// 	var data []map[string]interface{}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	log.Println(space)
+// 	// 1- Get path of all Shared folder with user
+// 	log.Println("Get path of all Shared folder with user processing")
+// 	getPaths := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("Shared").Documents(ctx)
+// 	for {
+// 		doc, err := getPaths.Next()
+// 		if err == iterator.Done {
+// 			break
+// 		}
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		//log.Println(doc.Data()["path"])
+// 		readPaths, err := client.Doc(doc.Data()["path"].(string)).Get(ctx)
+// 		if err != nil {
+// 			log.Println(err)
+// 		}
+// 		var m map[string]interface{}
+// 		m = readPaths.Data()
+// 		m["uiudUser"] = doc.Data()["uiud"]
+// 		m["isShared"] = true
+// 		m["date_dajout"] = doc.Data()["date_dajout"]
+// 		data = append(data, m)
+// 		fmt.Printf("Document data: %#v\n", m)
+
+// 		paths = append(paths, doc.Data())
+// 		log.Println("Mon item", m)
+// 		log.Println("Get path of all Shared folder with user finish")
+
+// 	}
+// 	log.Printf("Document data: %#v\n", data)
+// 	if err != nil {
+
+// 	}
+// 	c.JSON(200, gin.H{"data": data})
+// }
+// func ShareFolderOrFile(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	defer client.Close()
+
+// 	/*===== data ====*/
+// 	uiud_file := c.PostForm("uiud_file")
+// 	permission_level, err := strconv.Atoi(c.PostForm("permission_level"))
+// 	emailUser := strings.Split(c.PostFormArray("emailUsers[]")[0], ",")
+// 	myEmail := c.PostForm("myEmail")
+
+// 	/*======end ======*/
+// 	//var data []interface{}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	log.Println(space)
+// 	var data interface{}
+// 	/*=== get User data*/
+// 	log.Println("Request Get user infos")
+// 	log.Println("user email", emailUser)
+// 	for i := 0; i <= len(emailUser)-1; i++ {
+// 		var uidUser string = getUidUser(emailUser[i])
+// 		log.Println("user email", emailUser[i])
+// 		getUserData := client.Collection("CompanyID").Doc("1234").Collection("medias").Where("email", "==", emailUser[i]).Documents(ctx)
+// 		for {
+// 			doc, err := getUserData.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+
+// 			data = map[string]interface{}{
+// 				"date_ajout":       time.Now().Format("2006-01-02 15:04:05"),
+// 				"email":            doc.Data()["email"],
+// 				"permission_level": permission_level,
+// 			}
+// 			fmt.Println(uid)
+// 		}
+// 		log.Println(data)
+// 		log.Println("Request get user info finish")
+// 		/*=====update shared_with table of file*/
+
+// 		//data.permission_level=permission_level
+// 		log.Println(" Request setup share files updated items")
+// 		sharedRequest := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(uiud_file)
+// 		_, err = sharedRequest.Update(ctx, []firestore.Update{
+// 			{Path: "shared_with", Value: firestore.ArrayUnion(data)},
+// 		})
+// 		if err != nil {
+// 			c.JSON(400, gin.H{"error": err})
+// 		}
+// 		log.Println("Request finish to updated shared files")
+// 		/*==============Add file to the space of new user*/
+
+// 		log.Println("Request insert folder to the shared path of user")
+// 		xc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(uidUser).Collection("Shared").Where("uiud", "==", uiud_file).Documents(ctx) // try to acess dcoument
+// 		if xc != nil {                                                                                                                                        // if folder not exist
+// 			// create document
+// 			log.Println("folder not exist")
+// 			v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(uidUser).Collection("Shared").Doc(uiud_file).Set(ctx, map[string]interface{}{
+// 				"date_dajout": time.Now().Format("2006-01-02 15:04:05"),
+// 				"path":        "CompanyID/1234/medias/" + space + "/DOSSIER/" + uiud_file,
+// 				"create_by":   myEmail,
+// 				"uiud":        space,
+// 			})
+// 			var data []interface{}
+// 			data = append(data, map[string]interface{}{
+// 				"date_dajout": time.Now().Format("2006-01-02 15:04:05"),
+// 				"path":        "CompanyID/1234/medias/" + space + "/DOSSIER/" + uiud_file,
+// 				"create_by":   myEmail,
+// 				"uiud":        space,
+// 			})
+
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			c.JSON(200, gin.H{"message": "le dossier", "data": data})
+
+// 			log.Println(v)
+
+// 		} else if err == nil {
+// 			c.JSON(404, gin.H{"message": "le dossier est deja existant"})
+// 		}
+// 		log.Println("Request finish to insert file into the share file path of user")
+// 	}
+// }
+
+// // / =================== End Share File ============= ///
+// func ParseBranchname(branchString string) (branchname string) {
+// 	branchArray := strings.Split(branchString, "/")
+// 	fmt.Println("Taille du tableau : ", len(branchArray))
+// 	branchname = branchArray[1]
+
+// 	log.Println(branchname)
+// 	return branchname
+// }
+
+// // Paste folder or file
+// func pasteFileOrFolder(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	uiud := c.PostForm("uiud")
+// 	name := c.PostForm("name")
+// 	PasteFolder_uiud := c.PostForm("PasteFolder_uiud")
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	defer client.Close()
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	// variable de la fonction recursive
+// 	var changePath func(uiudFolder string)
+// 	// create function
+// 	changePath = func(uiudFolder string) {
+// 		var paths []interface{} // array of path
+// 		log.Println("-----------------uiud du dossier parent : ", uiudFolder)
+// 		// select all subfolder of the folder when Paent id  is equal to the uiudFolder
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("Parent_id", "==", uiudFolder).Where("type", "==", "folder").Documents(ctx)
+// 		// iterate over the subfolder
+// 		if doc != nil {
+// 			for {
+// 				doc2, err := doc.Next()
+// 				if err == iterator.Done {
+// 					break
+// 				}
+// 				if err != nil {
+// 					log.Fatalln(err)
+// 				}
+// 				log.Println("-----------------nom du dossier enfant : ", doc2.Data()["name"])
+// 				// get path of parent folder
+// 				doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("uiud", "==", uiudFolder).Documents(ctx)
+// 				if doc != nil {
+// 					for {
+// 						doc, err := doc.Next()
+// 						if err == iterator.Done {
+// 							break
+// 						}
+// 						if err != nil {
+// 							log.Fatalf("Failed to iterate: %v", err)
+// 						}
+// 						paths = doc.Data()["path"].([]interface{})
+// 						paths = append(path, map[string]interface{}{
+// 							"folderName": doc2.Data()["name"],
+// 							"uiud":       doc2.Data()["uiud"],
+// 							"index":      len(paths),
+// 						})
+// 					}
+// 					// update the path of the subfolder
+// 					doc2.Ref.Update(ctx, []firestore.Update{{Path: "path", Value: paths}})
+// 					// get the uiud of the subfolder
+// 					uiudsubfolder := doc2.Data()["uiud"].(string)
+// 					log.Println("-----------------go Next item ")
+// 					// call the function again to get the subfolder of the subfolder
+// 					changePath(uiudsubfolder)
+
+// 				} else {
+// 					log.Println("------------le dossier" + uiudFolder + "ne contient pas de sous dossiers")
+
+// 				}
+// 			}
+// 		}
+
+// 	}
+// 	// get path of folder
+// 	if PasteFolder_uiud == "DOSSIER" || PasteFolder_uiud == "My Drive" {
+// 		PasteFolder_uiud = "DOSSIER"
+// 		// GET ARRAY PATH PARENT FOLDER
+// 		path = []interface{}{
+// 			map[string]interface{}{
+// 				"folderName": name,
+// 				"uiud":       uiud,
+// 				"index":      0,
+// 			},
+// 		}
+// 	} else {
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("uiud", "==", PasteFolder_uiud).Documents(ctx)
+// 		for {
+// 			doc, err := doc.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+// 			path = doc.Data()["path"].([]interface{})
+// 			path = append(path, map[string]interface{}{
+// 				"folderName": name,
+// 				"uiud":       uiud,
+// 				"index":      len(path),
+// 			})
+// 			//	path = append(path., name)
+// 			//log.Println("Mon path", path)
+// 			fmt.Println(uid)
+
+// 		}
+// 	}
+
+// 	// get  update by uiud
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(uiud)
+// 	_, err = doc.Update(ctx, []firestore.Update{
+// 		{Path: "Parent_id", Value: PasteFolder_uiud},
+// 		{Path: "path", Value: path},
+// 	})
+// 	// call the function to get the subfolder of the subfolder
+// 	changePath(uiud)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// }
+
+// // download function
+// func downloadFolder(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	defer client.Close()
+// 	// variables postform
+// 	//path := c.PostForm("folderName")
+// 	folderUiud := c.PostForm("folderUiud")
+// 	// list inerface of oject
+// 	var list []interface{}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+
+// 	// Stream Header
+// 	c.Writer.Header().Set("Content-type", "application/octet-stream")
+// 	c.Stream(func(w io.Writer) bool {
+// 		// Create a zip archive.
+// 		log.Println("creation du fichier zip ")
+// 		ar := zip.NewWriter(w)
+// 		log.Println("le fichier zip a ete creer")
+// 		// variable de la fonction recursive
+// 		var getFiles func(uiudFolder string)
+// 		// create function
+// 		c.Writer.Header().Set("Content-Disposition", "attachment; filename="+folderUiud+".zip")
+// 		log.Println("debut de la requete")
+// 		getFiles = func(uiudFolder string) {
+// 			doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("Parent_id", "==", uiudFolder).Documents(ctx)
+// 			if doc != nil {
+
+// 				for {
+// 					doc, err := doc.Next()
+// 					if err == iterator.Done {
+// 						break
+// 					}
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					if doc.Data()["type"].(string) == "folder" {
+// 						log.Println("-----------------nom du dossier enfant : ", doc.Data()["name"])
+// 						getFiles(doc.Data()["uiud"].(string))
+// 					} else {
+// 						path := doc.Data()["path"].([]interface{})
+// 						// concat all path name of path
+// 						var pathName string
+// 						for _, v := range path {
+// 							pathName = pathName + v.(map[string]interface{})["folderName"].(string) + "/"
+// 						}
+// 						// generate ulr download files
+// 						log.Println("generation de l'url de telechargement de", doc.Data()["name"])
+// 						url := generateUrlFunc(c, doc.Data()["uiud"].(string)+doc.Data()["Ext"].(string))
+// 						log.Println("url de telechargement genere : ", url)
+
+// 						// telecharger le fichier
+// 						log.Println("telechargement du fichier", doc.Data()["name"])
+// 						response, e := http.Get(url)
+// 						if e != nil {
+// 							log.Fatal(e)
+// 						}
+// 						defer response.Body.Close()
+// 						log.Println("le fichier a ete telecharge", doc.Data()["name"])
+
+// 						// creation du fichier de sauvegarde dans le zip file
+// 						log.Println("creation du fichier de sauvegarde et copie", doc.Data()["name"])
+// 						f1, _ := ar.Create(pathName + doc.Data()["name"].(string))
+// 						io.Copy(f1, response.Body)
+// 						log.Println("le fichier a ete copie", doc.Data()["name"])
+
+// 						list = append(list, map[string]interface{}{
+// 							"name": doc.Data()["name"],
+// 							"uiud": doc.Data()["uiud"],
+// 							"path": pathName, //string(pathName),
+// 						})
+// 						//list = append(list, doc.Data()["name"].(string))
+// 					}
+// 				}
+// 				//
+// 			}
+// 		}
+
+// 		// appel de la fonction recursive
+// 		log.Println("execution de a fonction recursive")
+// 		getFiles(folderUiud)
+
+// 		// fermeture du fichier zip
+// 		log.Println("fermeture du fichier zip")
+// 		ar.Close()
+// 		c.JSON(200, gin.H{"status": "success", "url": ar})
+// 		//c.JSON(http.StatusOK, gin.H{"list": list})
+// 		return false
+// 	})
+
+// }
+// func testDownload(c *gin.Context) {
+// 	//ctx:= context.Background()
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	// check the recive uuid
+// 	fmt.Println("check the receive uuid:")
+// 	uiud := c.PostForm("folderUiud")
+// 	fmt.Println("Folder name")
+// 	foldername := c.PostForm("fordername")
+// 	fmt.Println(foldername)
+// 	fmt.Println(uiud)
+// 	fmt.Println("--------------++++++++++++---")
+
+// 	uiudUser := c.PostForm("uiudUser")
+// 	fmt.Println("user uid")
+// 	fmt.Println(uiudUser)
+// 	fmt.Println("end user uuid")
+// 	var files []map[string]interface{}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println(uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	fmt.Println(v)
+// 	result := make(chan gin.H)
+// 	// creating the zip name:
+// 	ext := ".zip"
+// 	zipName := uiud + ext
+// 	fmt.Println("creating zip....")
+// 	archive, err := os.Create(zipName)
+// 	fmt.Println(zipName)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer archive.Close()
+// 	zipWriter := zip.NewWriter(archive)
+// 	c.Writer.Header().Set("Content-type", "application/octet-stream")
+// 	c.Writer.Header().Set("Content-Disposition", "attachment; filename='filename.zip'")
+// 	fmt.Println("opening first file...")
+// 	/* f1, err := os.Open("test.csv")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer f1.Close() */
+// 	// begin loop
+// 	var once sync.Once
+// 	//uiud := c.PostForm("uiud")
+// 	go func(_ *gin.Context) {
+// 		defer recoverPanic()
+// 		//fmt.Println(uiudUser)
+// 		once.Do(func() {
+// 			iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(string(uiudUser)).Collection("DOSSIER").Where("name", "==", foldername).Documents(ctx) // try to acess document
+// 			if iter != nil {
+// 				for {
+// 					doc, err := iter.Next()
+// 					if err == iterator.Done {
+// 						break
+// 					}
+// 					if err != nil {
+// 						log.Fatalf("Failed to iterate: %v", err)
+// 					}
+// 					// we iterate and zip
+// 					/* if err := appendFiles(doc.Data().path[0], zipWriter); err != nil {
+// 						log.Fatalf("Failed to add file %s to zip: %s", doc.data().uid, err)
+// 					} */
+// 					fmt.Println(doc.Data()["name"])
+// 					// end iterate and zip
+// 					file := doc.Data()
+// 					files = append(files, file)
+// 				}
+// 			}
+
+// 			result <- gin.H{"data": files}
+
+// 		})
+// 	}(c.Copy())
+// 	//end loops
+
+// 	/* fmt.Println("writing first file to archive...")
+// 	w1, err := zipWriter.Create("csv/test.csv")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	if _, err := io.Copy(w1, f1); err != nil {
+// 		panic(err)
+// 	}
+
+// 	fmt.Println("opening second file")
+// 	f2, err := os.Open("test.txt")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	defer f2.Close()
+
+// 	fmt.Println("writing second file to archive...")
+// 	w2, err := zipWriter.Create("txt/test.txt")
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	if _, err := io.Copy(w2, f2); err != nil {
+// 		panic(err)
+// 	} */
+// 	fmt.Println("closing zip archive...")
+// 	zipWriter.Close()
+// 	c.JSON(200, gin.H{"status": "success", "url": archive})
+// }
+
+// // function to append zip files
+// func appendFiles(filename string, zipw *zip.Writer) error {
+// 	file, err := os.Open(filename)
+// 	if err != nil {
+// 		return fmt.Errorf("Failed to open %s: %s", filename, err)
+// 	}
+// 	defer file.Close()
+
+// 	wr, err := zipw.Create(filename)
+// 	if err != nil {
+// 		msg := "Failed to create entry for %s in zip file: %s"
+// 		return fmt.Errorf(msg, filename, err)
+// 	}
+
+// 	if _, err := io.Copy(wr, file); err != nil {
+// 		return fmt.Errorf("Failed to write %s to zip: %s", filename, err)
+// 	}
+
+// 	return nil
+// }
+
+// // end function to append files
+// // example of usage
+// func zipfiles() {
+// 	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
+// 	file, err := os.OpenFile("test.zip", flags, 0644)
+// 	if err != nil {
+// 		log.Fatalf("Failed to open zip for writing: %s", err)
+// 	}
+// 	defer file.Close()
+
+// 	var files = []string{"test1.txt", "test2.txt", "test3.txt"}
+
+// 	zipw := zip.NewWriter(file)
+// 	defer zipw.Close()
+
+// 	for _, filename := range files {
+// 		if err := appendFiles(filename, zipw); err != nil {
+// 			log.Fatalf("Failed to add file %s to zip: %s", filename, err)
+// 		}
+// 	}
+// }
+
+// // end of example
+
+// // function copy file
+// func copyFile(c *gin.Context, uiud_file, uiud, copyfolder, fileName, email, ext, size string) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	// convert szie to int64
+// 	log.Println("La taille de mon object est : ", size)
+// 	size_int, err := strconv.ParseFloat(size, 3)
+// 	// size, err = strconv.Atoi(size)
+// 	log.Println("La taille de mon object est : ", size_int)
+// 	fmt.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	// V4  uiuid
+// 	//	u := uuid.New().String()
+// 	// x := u[len(u)-4:]                             // get the 4 latest character
+// 	object := filepath.Join(space, uiud_file+ext) // get  oject name
+
+// 	// generate copy object
+// 	copyObject := filepath.Join(space, uiud+ext) // get  oject name
+
+// 	src := storageClient.Bucket(bucket).Object(object)
+// 	dst := storageClient.Bucket(bucket).Object(copyObject)
+
+// 	dst = dst.If(storage.Conditions{DoesNotExist: true})
+// 	if _, err := dst.CopierFrom(src).Run(ctx); err != nil {
+// 		fmt.Errorf("Object(%q).CopierFrom(%q).Run: %v", copyObject, object, err)
+// 		// response json
+// 		c.JSON(201, gin.H{"message": err})
+// 	} else {
+// 		log.Println("OBJECT COPIER", copyObject)
+// 		c.JSON(200, gin.H{"message": "fichier copier dans le bucket avec success"})
+// 	}
+// 	go func() {
+// 		defer recoverPanic()
+// 		// Get Path of parent folder
+// 		if copyfolder == "DOSSIER" || copyfolder == "" {
+// 			// GET ARRAY PATH PARENT FOLDER
+// 			path = []interface{}{map[string]interface{}{"folderName": "DOSSIER", "Parent_id": "DOSSIER"}}
+// 		} else {
+// 			doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("uiud", "==", copyfolder).Documents(ctx)
+// 			for {
+// 				doc, err := doc.Next()
+// 				if err == iterator.Done {
+// 					break
+// 				}
+// 				if err != nil {
+// 					log.Fatalf("Failed to iterate: %v", err)
+// 				}
+// 				path = doc.Data()["path"].([]interface{})
+// 				fmt.Println(uid)
+// 			}
+// 		}
+// 		//if duplicate == "0" {
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER") // try to acess dcoument
+// 		_, err = doc.Doc(uiud).Get(ctx)                                                                         // try to acess document
+// 		if err != nil {                                                                                         // if folder not exist
+// 			log.Println("file not exist")
+// 			v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(uiud).Set(ctx, map[string]interface{}{
+// 				"uiud":             uiud,
+// 				"name":             fileName,
+// 				"progress":         100,
+// 				"Ext":              ext,
+// 				"isUploading":      false,
+// 				"type":             "file",
+// 				"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 				"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + copyObject,
+// 				"Parent_id":        copyfolder,
+// 				"size":             size_int,
+// 				"path":             path,
+// 				"uploaded_by":      email,
+// 			})
+
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			// add size on  folder size
+// 			exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(copyfolder)
+// 			_, err = exe.Update(ctx, []firestore.Update{
+// 				{Path: "size", Value: firestore.Increment(size)},
+// 				{Path: "total_files", Value: firestore.Increment(1)},
+// 			})
+// 			fmt.Println(v)
+
+// 			do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(uiud_file)
+// 			_, err = do.Update(ctx, []firestore.Update{
+// 				{Path: "progress", Value: 100},
+// 				{Path: "isUploading", Value: false},
+// 			})
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			// Upload an object with storage.Writer.
+// 			defer recoverPanic()
+// 			mutex.Lock()
+// 			c.JSON(200, gin.H{"message": "fichier copier avec succes", "data": v})
+// 			mutex.Unlock()
+
+// 			// *************************************************************
+// 		}
+// 	}()
+
+// }
+
+// // function copyFolder to a new folder
+
+// func copyFunc(c *gin.Context, ParentFolderId, uiud, uiud_folder, name, email, uiudUser string) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	//convert szie to int64
+// 	space := fmt.Sprintf("%s", uid)
+// 	// recursive function to copy folder
+// 	var copyFolder func(folder string)
+// 	copyFolder = func(folder string) {
+// 		staticFolder := uiud
+// 		defer recoverPanic()
+// 		// get all files into folders
+// 		exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("Parent_id", "==", folder).Where("type", "==", "file").Documents(ctx)
+// 		for {
+// 			exe, err := exe.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+// 			//folder = uiud
+// 			//uiud_folder = doc.Data()["uiud"].(string)
+// 			log.Println("drejgrjrj@@##############")
+// 			uiud := uuid.New().String()
+// 			s := fmt.Sprintf("%f", exe.Data()["size"]) // s == "123.456000"
+// 			copyFile(c, exe.Data()["uiud"].(string), uiud, staticFolder, exe.Data()["name"].(string), exe.Data()["uploaded_by"].(string), exe.Data()["Ext"].(string), s)
+// 		}
+
+// 		// get all folders   into folder
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("Parent_id", "==", folder).Where("type", "==", "folder").Documents(ctx)
+// 		// array folder interfaces
+// 		if doc != nil {
+// 			for {
+// 				doc, err := doc.Next()
+// 				if err == iterator.Done {
+// 					break
+// 				}
+// 				if err != nil {
+// 					log.Fatalf("Failed to iterate: %v", err)
+// 				}
+// 				//	folder = uiud
+// 				//uiud_f:= doc.Data()["uiud"].(string)
+// 				//uiud = uuid.New().String()
+
+// 				// call recursive function to copy folder
+// 				defer recoverPanic()
+// 				copyFunc(c, uiud, uuid.New().String(), doc.Data()["uiud"].(string), doc.Data()["name"].(string), doc.Data()["uploaded_by"].(string), doc.Data()["uiudUser"].(string))
+
+// 			}
+// 		}
+// 	}
+// 	// create new folder in a new parent folder
+// 	//call create folder function
+// 	createFolderFunc(c, space, ParentFolderId, uiud, name, email, uiudUser)
+// 	// call copy folder function
+// 	copyFolder(uiud_folder)
+// }
+
+// // Copy object from one bucket to another
+// func copyObject(c *gin.Context) {
+// 	type_object := c.PostForm("type_object")
+// 	copyfolder := c.PostForm("copyfolder_uiud")
+// 	uiud := c.PostForm("uiud")
+// 	fileName := c.PostForm("fileName")
+// 	email := c.PostForm("userEmail")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	size := c.PostForm("size")
+// 	log.Println("La taille de mon object est : ", size)
+// 	if type_object == "file" {
+// 		uiud_file := c.PostForm("uiud_file")
+// 		ext := c.PostForm("Ext")
+// 		// afficher les données
+// 		log.Println(uiud_file)
+// 		log.Println(uiud)
+// 		log.Println(copyfolder)
+// 		log.Println(fileName)
+// 		log.Println(ext)
+// 		copyFile(c, uiud_file, uiud, copyfolder, fileName, email, ext, size)
+// 	} else {
+// 		uiud_folder := c.PostForm("uiud_folder")
+// 		copyFunc(c, copyfolder, uiud, uiud_folder, fileName, email, uiudUser)
+// 	}
+// }
+
+// func recoverPanic() {
+
+// 	if r := recover(); r != nil {
+// 		err, ok := r.(error)
+// 		if !ok {
+// 			err = fmt.Errorf("%v", r)
+// 		}
+// 		fmt.Println(err)
+// 	}
+// }
+
+// /*
+// create User stockage space in firebasestore and return uuid
+// */
+// func createUserStockage(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	time_creation := time.Now().Format("2006-01-02 15:04:05")
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	defer client.Close()
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	//	uidStr := fmt.Sprintf("%v", uid)
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(valName) // try to acess dcoument
+// 	_, err = doc.Get(ctx)
+// 	if err != nil { // if document not exist
+// 		// create document
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(valName).Set(ctx, map[string]interface{}{
+// 			"date_de_creation": time_creation,
+// 		})
+
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		c.JSON(200, gin.H{"message": "Dossier cree  avec succes"})
+// 		fmt.Println(v)
+
+// 	}
+// }
+
+// /*
+//  */
+// func getfile(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	name := c.PostForm("fileName")
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 		return
+// 	}
+// 	defer client.Close()
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	data := map[string]interface{}{}
+
+// 	space := fmt.Sprintf("%s", uid)
+// 	fmt.Println(uid)
+// 	//	uidStr := fmt.Sprintf("%v", uid)
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("name", "==", name).Documents(ctx) // try to acess dcoument
+// 	if doc != nil {
+// 		for {
+// 			doc, err := doc.Next()
+// 			if err == iterator.Done {
+// 				break
+
+// 			}
+// 			data = doc.Data()
+// 		}
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{"data": data})
+// }
+
+// /*
+// create folder in another file
+// PARAMETER: FOLDER PARENT NAME AND FOLDER NAME
+// */
+
+// // function create folder with parameter
+// func createFolderFunc(c *gin.Context, space, parentFolderId, uiud, name, email, uiudUser string) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	if parentFolderId == "DOSSIER" || parentFolderId == "" {
+// 		// GET ARRAY PATH PARENT FOLDER
+// 		path = []interface{}{
+// 			map[string]interface{}{
+// 				"folderName": name,
+// 				"uiud":       uiud,
+// 				"index":      0,
+// 				"uiudUser":   space,
+// 			},
+// 		}
+// 	} else {
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(uiudUser).Collection("DOSSIER").Where("uiud", "==", parentFolderId).Documents(ctx)
+// 		for {
+// 			doc, err := doc.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+// 			path = doc.Data()["path"].([]interface{})
+// 			path = append(path, map[string]interface{}{
+// 				"folderName": name,
+// 				"uiud":       uiud,
+// 				"index":      len(path),
+// 				"uiudUser":   space,
+// 			})
+// 			//	path = append(path., name)
+// 			//log.Println("Mon path", path)
+// 		}
+// 	}
+// 	xc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(uiudUser).Collection("DOSSIER") // try to acess dcoument
+// 	_, err = xc.Doc(uiud).Get(ctx)                                                                            // try to acess document
+// 	if err != nil {                                                                                           // if folder not exist
+// 		// create document
+// 		log.Println("folder not exist")
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(uiudUser).Collection("DOSSIER").Doc(uiud).Set(ctx, map[string]interface{}{
+// 			"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 			"type":             "folder",
+// 			"Parent_id":        parentFolderId,
+// 			"name":             name,
+// 			"size":             0,
+// 			"total_files":      0,
+// 			"path":             path,
+// 			"isUploading":      false,
+// 			"uiud":             uiud,
+// 			"permission":       0,
+// 			"uploaded_by":      email,
+// 			"uiudUser":         space,
+// 			"shared_with":      []interface{}{},
+// 		})
+// 		var data []interface{}
+// 		data = append(data, map[string]interface{}{
+// 			"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 			"type":             "folder",
+// 			"Parent_id":        parentFolderId,
+// 			"name":             name,
+// 			"size":             0,
+// 			"total_files":      0,
+// 			"path":             path,
+// 			"isUploading":      false,
+// 			"uiud":             uiud,
+// 			"uploaded_by":      email,
+// 			"uiudUser":         space,
+// 			"permission":       0,
+// 			"shared_with":      []interface{}{},
+// 		})
+
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		c.JSON(200, gin.H{"message": "le dossier", "data": data})
+
+// 		log.Println(v)
+
+// 	} else if err == nil {
+// 		c.JSON(404, gin.H{"message": "le dossier est deja existant"})
+// 	}
+// }
+
+// func createFolder(c *gin.Context) {
+// 	//ctx := context.Background()
+// 	//client,err := app.Firestore(ctx)
+// 	name := c.PostForm("folderName")
+// 	//uiud := c.PostForm("valName")
+// 	parentFolderId := c.PostForm("parentFolderId")
+// 	uiud := c.PostForm("uiud")
+// 	email := c.PostForm("userEmail")
+// 	isShared := c.PostForm("isShared")
+// 	var uiudUser string
+// 	//client, err := app.Firestore(ctx)
+// 	log.Println(valName)
+// 	log.Println(name)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	space := fmt.Sprintf("%s", uid)
+// 	log.Println("fdkvf" + parentFolderId)
+// 	// call function create folder with parameter
+// 	if isShared == "false" {
+// 		uiudUser = space
+// 	} else {
+// 		uiudUser = c.PostForm("uiudUser")
+// 	}
+// 	createFolderFunc(c, space, parentFolderId, uiud, name, email, uiudUser)
+
+// }
+
+// func UploadFolder(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	folderName := c.PostForm("folderName")
+// 	uiud := c.PostForm("uiud")
+// 	isUploading := c.PostForm("isUploading")
+// 	progress := c.PostForm("progress")
+// 	//size, err := strconv.Atoi(c.PostForm("size"))
+// 	parentFolderId := c.PostForm("parentFolderId")
+// 	isShared, _ := strconv.ParseBool(c.PostForm("isShared"))
+// 	uiudUser := c.PostForm("uiudUser")
+// 	userEmail := c.PostForm("userEmail")
+// 	var finalUser string
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	if isShared == true {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = space
+// 	}
+// 	log.Print(" Is shared file ")
+// 	log.Println(isShared)
+// 	log.Println("User uiud is " + uiudUser)
+// 	log.Println("fdkvf" + parentFolderId)
+// 	if parentFolderId == "DOSSIER" || parentFolderId == "" {
+// 		// GET ARRAY PATH PARENT FOLDER
+// 		path = []interface{}{
+// 			map[string]interface{}{
+// 				"folderName": folderName,
+// 				"uiud":       uiud,
+// 				"index":      0,
+// 			},
+// 		}
+// 	} else {
+// 		doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", parentFolderId).Documents(ctx)
+// 		for {
+// 			doc, err := doc.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+// 			path = doc.Data()["path"].([]interface{})
+// 			path = append(path, map[string]interface{}{
+// 				"folderName": folderName,
+// 				"uiud":       uiud,
+// 				"index":      len(path),
+// 				"uiudUser":   space,
+// 			})
+// 			//	path = append(path., name)
+// 			//log.Println("Mon path", path)
+// 			fmt.Println(uid)
+// 		}
+// 	}
+// 	statut, err := strconv.ParseBool(isUploading)
+// 	prog, err := strconv.ParseInt(progress, 10, 64)
+// 	// // verifier si le dossier existe deja
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 	_, err = doc.Doc(uiud).Get(ctx)                                                                             // try to acess document
+// 	if err != nil {                                                                                             // if folder not exist
+// 		// 	// create document
+// 		log.Println("le dossier est inexistant, creatio nen cour")
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud).Set(ctx, map[string]interface{}{
+// 			"uiud":             uiud,
+// 			"name":             folderName,
+// 			"type":             "folder",
+// 			"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 			"Parent_id":        parentFolderId,
+// 			"path":             path,
+// 			"isUploading":      statut,
+// 			"progress":         prog,
+// 			"size":             0,
+// 			"total_files":      0,
+// 			"permission":       0,
+// 			"isShared":         isShared,
+// 			"uploaded_by":      userEmail,
+// 			"uiudUser":         finalUser,
+// 			"shared_with":      []interface{}{},
+// 		})
+// 		var data []interface{}
+// 		data = append(data, map[string]interface{}{
+// 			"uiud":             uiud,
+// 			"name":             folderName,
+// 			"type":             "folder",
+// 			"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 			"Parent_id":        parentFolderId,
+// 			"path":             path,
+// 			"isUploading":      statut,
+// 			"progress":         prog,
+// 			"size":             0,
+// 			"total_files":      0,
+// 			"permission":       0,
+// 			"isShared":         isShared,
+// 			"uploaded_by":      userEmail,
+// 			"uiudUser":         finalUser,
+// 			"shared_with":      []interface{}{},
+// 		})
+// 		log.Println(v)
+// 		log.Println("le dossier" + folderName + "a ete cree")
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		c.JSON(200, gin.H{"message": "le dossier a ete cree", "data": data})
+
+// 	} else {
+// 		//update progress
+// 		do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud)
+// 		_, err = do.Update(ctx, []firestore.Update{
+// 			{Path: "progress", Value: 100},
+// 			{Path: "isUploading", Value: false},
+// 		})
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		var data []interface{}
+// 		data = append(data, map[string]interface{}{
+// 			"uiud":             uiud,
+// 			"name":             folderName,
+// 			"type":             "folder",
+// 			"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 			"Parent_id":        parentFolderId,
+// 			"path":             path,
+// 			"isUploading":      false,
+// 			"progress":         100,
+// 			"size":             0,
+// 			"total_files":      0,
+// 			"permission":       0,
+// 			"isShared":         isShared,
+// 			"uploaded_by":      userEmail,
+// 			"uiudUser":         finalUser,
+// 			"shared_with":      []interface{}{},
+// 		})
+// 		log.Println("le dossier" + folderName + "a ete mis a jour")
+// 		c.JSON(201, gin.H{"message": "Statut a jour ", "data": data})
+// 	}
+// }
+
+// func FilePathWalkDir(root string) ([]string, error) {
+// 	var files []string
+// 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+// 		if !info.IsDir() {
+// 			files = append(files, path)
+// 		}
+// 		return nil
+// 	})
+// 	return files, err
+// }
+
+// //create file
+// //PARAMETER: FOLDER PARENT NAME AND FILE NAME
+
+// /*
+// Ajout d'un fichier dans un dossier existant
+// PARAMETER: FOLDER PARENT NAME AND FILE NAME
+// */
+// func savefileOne(c *gin.Context) {
+
+// 	ctx := context.Background()
+// 	var isDone bool
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	// ###############################################
+
+// 	// ###############  UPLOAD FILE  #################
+// 	parentFolderId := c.PostForm("path")
+// 	isShared, _ := strconv.ParseBool(c.PostForm("isShared"))
+// 	//isShared:=c.PostForm("isShared")
+// 	userEmail := c.PostForm("userEmail")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	var finalUser string
+// 	size, err := strconv.ParseFloat(c.PostForm("size"), 64)
+// 	// duplicate := c.PostForm("duplicate")
+// 	//	log.Println("Mon premier fichier", uiud[0])
+
+// 	// DECOUPER L' 	UIUD
+// 	uiud := strings.Split(c.PostFormArray("uiud[]")[0], ",")
+// 	log.Println("Mon premier fichier", uiud)
+
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	log.Println("Mon dossier:" + parentFolderId)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+
+// 	}
+// 	fmt.Sprintf("%v", uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	if isShared == true {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = space
+// 	}
+// 	log.Print("It'a a shared item  :")
+// 	log.Println(isShared)
+// 	log.Println(file.Filename)
+// 	branchArray := strings.Split(file.Filename, "/")
+
+// 	if len(branchArray) == 2 {
+// 		// Ajout du fichier dans le dossier
+// 		fileName := branchArray[1]
+// 		log.Println("Nom du fichier a telecharger ", fileName)
+
+// 		//	log.Println(c.FormFile("file[" + strconv.Itoa(i) + "]"))
+// 		// new  uiud
+// 		log.Println(path)
+// 		ext := filepath.Ext(file.Filename)
+
+// 		file_uuid := c.PostForm("file_uiud")
+// 		fmt.Println("UUID is: ", file_uuid)
+
+// 		targetFolder := filepath.Join(root_path, finalUser)
+// 		os.MkdirAll(targetFolder, os.ModePerm)
+
+// 		targetFile := filepath.Join(targetFolder, file_uuid+ext)
+
+// 		// Upload the file to specific dst.
+// 		if err := c.SaveUploadedFile(file, targetFile); err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		// Open local file.
+// 		log.Println(targetFile)
+// 		f, err := os.Open(targetFile)
+// 		if err != nil {
+// 			respondWithError(c, http.StatusInternalServerError, err.Error())
+// 			return
+// 		}
+// 		fi, err := f.Stat()
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 		fmt.Println(fi.Size())
+// 		defer f.Close()
+// 		object := filepath.Join(finalUser, file_uuid+ext)
+
+// 		log.Println(object)
+// 		// /*=============== firebase save =====DOSSIER
+// 		//log.Println(file.Filename)
+
+// 		var once sync.Once
+// 		once.Do(func() {
+// 			// Create a new document.
+// 			go func() {
+// 				defer recoverPanic()
+// 				// Get Path of parent folder
+// 				if parentFolderId == "DOSSIER" || parentFolderId == "" {
+// 					// GET ARRAY PATH PARENT FOLDER
+// 					path = []interface{}{map[string]interface{}{"folderName": "DOSSIER", "Parent_id": "DOSSIER"}}
+// 				} else {
+// 					doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", parentFolderId).Documents(ctx)
+// 					for {
+// 						doc, err := doc.Next()
+// 						if err == iterator.Done {
+// 							break
+// 						}
+// 						if err != nil {
+// 							log.Fatalf("Failed to iterate: %v", err)
+// 						}
+// 						path = doc.Data()["path"].([]interface{})
+// 						// path = append(path, map[string]interface{}{
+// 						// 	"folderName": branchArray[1],
+// 						// 	"uiud":       file_uuid,
+// 						// 	"index":      len(path),
+// 						// })
+// 						fmt.Println(uid)
+// 					}
+// 				}
+
+// 				doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 				_, err = doc.Doc(file_uuid).Get(ctx)                                                                        // try to acess document
+// 				if err != nil {                                                                                             // if folder not exist
+// 					// create document
+// 					log.Println("file not exist")
+// 					v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(file_uuid).Set(ctx, map[string]interface{}{
+// 						"uiud":             file_uuid,
+// 						"name":             fileName,
+// 						"progress":         100,
+// 						"Ext":              ext,
+// 						"isUploading":      false,
+// 						"type":             "file",
+// 						"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 						"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + object,
+// 						"Parent_id":        parentFolderId,
+// 						"size":             size,
+// 						"path":             path,
+// 						"permission":       0,
+// 						"isShared":         isShared,
+// 						"uploaded_by":      userEmail,
+// 						"uiudUser":         finalUser,
+// 						"shared_with":      []interface{}{},
+// 					})
+// 					log.Println("Update parent folder by uiud")
+// 					// add size on  folder size
+// 					exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(parentFolderId)
+// 					_, err = exe.Update(ctx, []firestore.Update{
+// 						{Path: "size", Value: firestore.Increment(float64(fi.Size()) / 1000)},
+// 						{Path: "total_files", Value: firestore.Increment(1)},
+// 						{Path: "isUploading", Value: false},
+// 					})
+// 					log.Println(" un element a ete ajoute dans le dossier " + parentFolderId)
+// 					do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(file_uuid)
+// 					_, err = do.Update(ctx, []firestore.Update{
+// 						{Path: "progress", Value: 100},
+// 						{Path: "isUploading", Value: false},
+// 					})
+
+// 					// if err != nil {
+// 					// 	log.Fatalln(err)
+// 					// }
+
+// 					fmt.Println(v)
+
+// 					// //update progress
+
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					// Upload an object with storage.Writer.
+// 					isDone = true
+// 					defer recoverPanic()
+// 					mutex.Lock()
+// 					c.JSON(200, gin.H{"message": "fichier ajouter avec succes", "data": v})
+// 					mutex.Unlock()
+
+// 					// *************************************************************
+// 				} else if err == nil {
+// 					isDone = false
+// 					c.JSON(201, gin.H{"message": "le fichier existe deja"})
+// 				}
+// 			}()
+// 			log.Println("isDone", isDone)
+// 			//var once sync.Once
+// 			//	saveCloud(c,object,ctx,f)
+// 			// once.Do(func() {
+
+// 			wc := storageClient.Bucket(bucket).Object(object).NewWriter(ctx)
+// 			if _, err = io.Copy(wc, f); err != nil {
+// 				respondWithError(c, http.StatusInternalServerError, err.Error())
+// 				return
+// 			}
+// 			if err := wc.Close(); err != nil {
+// 				respondWithError(c, http.StatusInternalServerError, err.Error())
+// 				return
+// 			}
+// 			log.Println("le fichier a ete uploader avec succes", fileName)
+// 		})
+// 	} else if len(branchArray) > 2 {
+// 		log.Println("Taille du path superieur a 2")
+// 		for i := 1; i <= len(branchArray)-1; i++ {
+// 			if i == 1 {
+// 				log.Println("first folder" + branchArray[1])
+// 				log.Println("Parent ID folder" + parentFolderId)
+// 				/// GEET PARENT PATH
+// 				do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", parentFolderId).Documents(ctx) // try to acess document
+// 				for {
+// 					doc, err := do.Next()
+// 					if err == iterator.Done {
+// 						break
+// 					}
+// 					if err != nil {
+// 						log.Fatalf("Failed to iterate: %v", err)
+// 					}
+// 					path = doc.Data()["path"].([]interface{})
+// 					fmt.Println(uid)
+// 					path = append(path, map[string]interface{}{
+// 						"folderName": branchArray[i],
+// 						"uiud":       uiud[i-1],
+// 						"index":      len(path),
+// 						"uiudUser":   finalUser,
+// 					})
+// 				}
+// 				log.Println("le dossier " + branchArray[1] + " est en cour de creation avec uiud" + uiud[i-1])
+// 				// Ajout du dossier
+// 				xc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 				_, err = xc.Doc(uiud[i-1]).Get(ctx)                                                                        // try to acess document
+// 				if err != nil {
+// 					// create document
+// 					v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(string(uiud[i-1])).Set(ctx, map[string]interface{}{
+// 						"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 						"type":             "folder",
+// 						"Parent_id":        parentFolderId,
+// 						"name":             branchArray[1],
+// 						"size":             0,
+// 						"path":             path,
+// 						"total_files":      0,
+// 						"isUploading":      false,
+// 						"uiud":             uiud[i-1],
+// 						"permission":       0,
+// 						"isShared":         isShared,
+// 						"uploaded_by":      userEmail,
+// 						"uiudUser":         finalUser,
+// 						"shared_with":      []interface{}{},
+// 					})
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					// add size on  folder size
+// 					exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(parentFolderId)
+// 					_, err = exe.Update(ctx, []firestore.Update{
+// 						{Path: "total_files", Value: firestore.Increment(1)},
+// 					})
+// 					log.Println(" un element a ete ajoute dans le dossier " + parentFolderId)
+// 					log.Println("le dossier " + branchArray[1] + " a été créé avec succes avec uiud" + uiud[i-1])
+// 					//c.JSON(200, gin.H{"message": "le dossier a ete cree"})
+
+// 					log.Println(v)
+// 				} else if err == nil {
+// 					log.Println("le dossier" + uiud[i-1] + " existe deja")
+// 				}
+// 				// if folder not ex
+
+// 			} else if i == len(branchArray)-1 {
+// 				fileName := branchArray[i]
+// 				log.Println("le fichier " + fileName + "est en cour d'upload dans le dossier " + branchArray[i-1])
+
+// 				log.Println(path)
+// 				ext := filepath.Ext(file.Filename)
+
+// 				file_uuid := uiud[i-1]
+// 				fmt.Println("UUID is: ", file_uuid)
+
+// 				targetFolder := filepath.Join(root_path, finalUser)
+// 				os.MkdirAll(targetFolder, os.ModePerm)
+
+// 				targetFile := filepath.Join(targetFolder, file_uuid+ext)
+
+// 				if err := c.SaveUploadedFile(file, targetFile); err != nil {
+// 					log.Fatalln(err)
+// 				}
+// 				log.Println(targetFile)
+// 				f, err := os.Open(targetFile)
+// 				if err != nil {
+// 					respondWithError(c, http.StatusInternalServerError, err.Error())
+// 					return
+// 				}
+// 				fi, err := f.Stat()
+// 				if err != nil {
+// 					log.Fatal(err)
+// 				}
+// 				fmt.Println(fi.Size())
+// 				defer f.Close()
+// 				object := filepath.Join(space, file_uuid+ext)
+
+// 				log.Println(object)
+// 				// /*=============== firebase save =====DOSSIER
+// 				//log.Println(file.Filename)
+
+// 				var once sync.Once
+// 				once.Do(func() {
+// 					// Create a new document.
+// 					go func() {
+// 						defer recoverPanic()
+
+// 						// Get Path of parent folder
+// 						do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", uiud[i-2]).Documents(ctx)
+// 						for {
+// 							doc, err := do.Next()
+// 							if err == iterator.Done {
+// 								break
+// 							}
+// 							if err != nil {
+// 								log.Fatalf("Failed to iterate: %v", err)
+// 							}
+// 							path = doc.Data()["path"].([]interface{})
+// 							fmt.Println(uid)
+// 						}
+
+// 						doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 						_, err = doc.Doc(file_uuid).Get(ctx)                                                                        // try to acess document
+// 						if err != nil {                                                                                             // if folder not exist
+// 							// create document
+// 							log.Println("file not exist")
+// 							v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(file_uuid).Set(ctx, map[string]interface{}{
+// 								"uiud":             file_uuid,
+// 								"name":             fileName,
+// 								"progress":         100,
+// 								"Ext":              ext,
+// 								"isUploading":      false,
+// 								"type":             "file",
+// 								"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 								"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + object,
+// 								"Parent_id":        uiud[len(uiud)-2],
+// 								"size":             size,
+// 								"path":             path,
+// 								"permission":       0,
+// 								"isShared":         isShared,
+// 								"uploaded_by":      userEmail,
+// 								"uiudUser":         finalUser,
+// 								"shared_with":      []interface{}{},
+// 							})
+// 							// add size on  folder size
+// 							exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(string(uiud[len(uiud)-2]))
+// 							_, err = exe.Update(ctx, []firestore.Update{
+// 								{Path: "size", Value: firestore.Increment(fi.Size() / 1000)},
+// 								{Path: "total_files", Value: firestore.Increment(1)},
+// 							})
+// 							log.Println(" un element a ete ajoute dans le dossier " + uiud[len(uiud)-2])
+
+// 							if err != nil {
+// 								log.Fatalln(err)
+// 							}
+
+// 							fmt.Println(v)
+
+// 							// //update progress
+// 							do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(file_uuid)
+// 							_, err = do.Update(ctx, []firestore.Update{
+// 								{Path: "progress", Value: 100},
+// 								{Path: "isUploading", Value: false},
+// 							})
+
+// 							if err != nil {
+// 								log.Fatalln(err)
+// 							}
+// 							// if err != nil {
+// 							// 	log.Fatalln(err)
+// 							// }
+
+// 							// Upload an object with storage.Writer.
+// 							isDone = true
+// 							defer recoverPanic()
+// 							mutex.Lock()
+// 							c.JSON(200, gin.H{"message": "fichier ajouter avec succes", "data": v})
+// 							mutex.Unlock()
+// 							// *************************************************************
+// 						} else if err == nil {
+// 							isDone = false
+// 							c.JSON(201, gin.H{"message": "le fichier existe deja"})
+// 						}
+// 					}()
+// 					log.Println("isDone", isDone)
+// 					//var once sync.Once
+// 					//	saveCloud(c,object,ctx,f)
+// 					// once.Do(func() {
+
+// 					wc := storageClient.Bucket(bucket).Object(object).NewWriter(ctx)
+// 					if _, err = io.Copy(wc, f); err != nil {
+// 						respondWithError(c, http.StatusInternalServerError, err.Error())
+// 						return
+// 					}
+// 					if err := wc.Close(); err != nil {
+// 						respondWithError(c, http.StatusInternalServerError, err.Error())
+// 						return
+// 					}
+// 					log.Println("Upload du fichier", fileName, "au cloud terminer")
+// 				})
+
+// 			} else {
+// 				log.Println("le dossier " + branchArray[i] + " est en cour de creation avec uiud" + uiud[i])
+
+// 				do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", uiud[i-2]).Documents(ctx)
+// 				for {
+// 					doc, err := do.Next()
+// 					if err == iterator.Done {
+// 						break
+// 					}
+// 					if err != nil {
+// 						log.Fatalf("Failed to iterate: %v", err)
+// 					}
+// 					path = doc.Data()["path"].([]interface{})
+// 					fmt.Println(uid)
+// 					path = append(path, map[string]interface{}{
+// 						"folderName": branchArray[i],
+// 						"uiud":       uiud[i-1],
+// 						"index":      len(path),
+// 						"uiudUser":   finalUser,
+// 					})
+// 				}
+
+// 				// Ajout du dossier
+// 				xc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 				_, err = xc.Doc(string(uiud[i-1])).Get(ctx)                                                                // try to acess document
+// 				if err != nil {                                                                                            // if folder not exist
+// 					// create document
+// 					log.Println("folder not exist")
+// 					v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(string(uiud[i-1])).Set(ctx, map[string]interface{}{
+// 						"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 						"type":             "folder",
+// 						"Parent_id":        uiud[i-2],
+// 						"name":             branchArray[i],
+// 						"size":             0,
+// 						"total_files":      0,
+// 						"path":             path,
+// 						"uiud":             uiud[i-1],
+// 						"isUploading":      false,
+// 						"permission":       0,
+// 						"isShared":         isShared,
+// 						"uploaded_by":      userEmail,
+// 						"uiudUser":         finalUser,
+// 						"shared_with":      []interface{}{},
+// 					})
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					log.Println("le dossier " + branchArray[i] + " a été créé avec succes avec uiud" + uiud[i-1])
+
+// 					// add aditionnal one count of parent folder
+// 					exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(string(uiud[i-2]))
+// 					_, err = exe.Update(ctx, []firestore.Update{
+// 						{Path: "total_files", Value: firestore.Increment(1)},
+// 					})
+// 					log.Println(" un element a ete ajoute dans le dossier " + uiud[i-2])
+// 					log.Println(v)
+
+// 				} else if err == nil {
+// 					log.Println(err)
+// 				}
+
+// 			}
+
+// 		}
+
+// 	}
+// 	//fileName := ParseBranchname(file.Filename)
+// 	//} else {
+// 	//fileName = file.Filename
+// 	//}
+
+// }
+
+// func savefile(c *gin.Context) {
+// 	ctx := context.Background()
+// 	// ###############################################
+
+// 	// ###############  UPLOAD FILE  #################
+
+// 	parentFolderId := c.PostForm("path")
+
+// 	log.Println("Mon dossier:" + parentFolderId)
+// 	//log.Println(file.Filename)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+
+// 	}
+// 	length := c.PostForm("lenght")
+// 	isShared := c.PostForm("isShared")
+// 	userEmail := c.PostForm("userEmail")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	log.Println("length", length)
+// 	var finalUser string
+// 	lenghtInt, err := strconv.Atoi(length)
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	fmt.Sprintf("%v", uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	if isShared == "true" {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = userEmail
+// 	}
+// 	//cCp := c.Copy()
+// 	// Upload an object with storage.Writer.
+// 	go func(_ *gin.Context) {
+// 		for i := 0; i < lenghtInt; i++ {
+// 			log.Println("file[" + strconv.Itoa(i) + "]")
+// 			//	log.Println(c.FormFile("file[" + strconv.Itoa(i) + "]"))
+// 			file, err := c.FormFile("file[" + strconv.Itoa(i) + "]")
+// 			if err != nil {
+// 				log.Fatal(err)
+// 			}
+// 			log.Println(path)
+// 			ext := filepath.Ext(file.Filename)
+
+// 			file_uuid := uuid.New().String()
+// 			fmt.Println("UUID is: ", file_uuid)
+
+// 			targetFolder := filepath.Join(root_path, space)
+// 			os.MkdirAll(targetFolder, os.ModePerm)
+
+// 			targetFile := filepath.Join(targetFolder, file_uuid+ext)
+
+// 			// Upload the file to specific dst.
+// 			if err := c.SaveUploadedFile(file, targetFile); err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			// Open local file.
+// 			log.Println(targetFile)
+// 			f, err := os.Open(targetFile)
+// 			if err != nil {
+// 				respondWithError(c, http.StatusInternalServerError, err.Error())
+// 				return
+// 			}
+// 			fi, err := f.Stat()
+// 			if err != nil {
+// 				log.Fatal(err)
+// 			}
+// 			fmt.Println(fi.Size())
+// 			defer f.Close()
+// 			object := filepath.Join(finalUser, file_uuid+ext)
+
+// 			log.Println(object)
+// 			// /*=============== firebase save =====DOSSIER
+// 			//log.Println(file.Filename)
+// 			client, err := app.Firestore(ctx)
+// 			go func() {
+// 				defer recoverPanic()
+// 				// Get Path of parent folder
+// 				if parentFolderId == "DOSSIER" || parentFolderId == "" {
+// 					// GET ARRAY PATH PARENT FOLDER
+// 					path = []interface{}{map[string]interface{}{"folderName": "DOSSIER", "Parent_id": "DOSSIER"}}
+// 				} else {
+// 					doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("name", "==", parentFolderId).Documents(ctx)
+// 					for {
+// 						doc, err := doc.Next()
+// 						if err == iterator.Done {
+// 							break
+// 						}
+// 						if err != nil {
+// 							log.Fatalf("Failed to iterate: %v", err)
+// 						}
+// 						path = doc.Data()["path"].([]interface{})
+// 						fmt.Println(uid)
+// 					}
+// 				}
+
+// 				doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 				_, err = doc.Doc(file.Filename).Get(ctx)                                                                    // try to acess document
+// 				if err != nil {                                                                                             // if folder not exist
+// 					// create document
+// 					log.Println("file not exist")
+// 					v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(file.Filename).Set(ctx, map[string]interface{}{
+// 						"uiud":             file_uuid,
+// 						"name":             file.Filename,
+// 						"progress":         100,
+// 						"Ext":              ext,
+// 						"uploaded_by":      userEmail,
+// 						"isUploading":      false,
+// 						"type":             "file",
+// 						"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 						"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + object,
+// 						"Parent_id":        parentFolderId,
+// 						"size":             fi.Size() / 1000,
+// 						"path":             path,
+// 						"permission":       0,
+// 						"uiudUser":         finalUser,
+// 						"shared_with":      []interface{}{},
+// 					})
+
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					// add size on  folder size
+// 					exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(string(parentFolderId))
+// 					_, err = exe.Update(ctx, []firestore.Update{
+// 						{Path: "size", Value: firestore.Increment(fi.Size() / 1000)},
+// 						{Path: "total_files", Value: firestore.Increment(1)},
+// 					})
+
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+
+// 					//fmt.Println(folderName)
+
+// 					fmt.Println(v)
+
+// 					c.JSON(200, gin.H{"message": "fichier ajouter avec succes", "data": v})
+// 					// *************************************************************
+// 				} else if err == nil {
+// 					c.JSON(201, gin.H{"message": "le fichier existe deja"})
+// 				}
+// 			}()
+// 			var once sync.Once
+// 			once.Do(func() {
+// 				wc := storageClient.Bucket(bucket).Object(object).NewWriter(ctx)
+// 				if _, err = io.Copy(wc, f); err != nil {
+// 					respondWithError(c, http.StatusInternalServerError, err.Error())
+// 					return
+// 				}
+// 				if err := wc.Close(); err != nil {
+// 					respondWithError(c, http.StatusInternalServerError, err.Error())
+// 					return
+// 				}
+// 			})
+// 		}
+// 	}(c.Copy())
+// }
+
+// func savefire(c *gin.Context) {
+
+// 	ctx := context.Background()
+// 	var isDone bool
+
+// 	// ###############################################
+
+// 	// ###############  UPLOAD FILE  #################
+// 	parentFolderId := c.PostForm("path")
+// 	uiud := c.PostForm("uiud")
+// 	fmt.Println("Mon uiud", uiud)
+// 	duplicate := c.PostForm("duplicate")
+// 	isShared, _ := strconv.ParseBool(c.PostForm("isShared"))
+// 	uiudUser := c.PostForm("uiudUser")
+// 	userEmail := c.PostForm("userEmail")
+// 	// isFolder := c.PostForm("isFolder")
+// 	var finalUser string
+// 	file, err := c.FormFile("file")
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	//isFolder := c.PostForm("isFolder")
+// 	log.Println(file.Filename)
+// 	//var fileName string
+// 	//if isFolder == "true" {
+// 	fileName := file.Filename
+// 	//} else {
+// 	//fileName = file.Filename
+// 	//}
+// 	log.Println("fileName", fileName)
+// 	log.Println("Mon dossier:" + parentFolderId)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+
+// 	}
+// 	fmt.Sprintf("%v", uid)
+// 	space := fmt.Sprintf("%s", uid)
+
+// 	if isShared == true {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = space
+// 	}
+// 	log.Println("My uiudUser" + finalUser)
+// 	log.Println(isShared)
+// 	log.Println("Email  " + userEmail)
+// 	log.Println(path)
+// 	ext := filepath.Ext(file.Filename)
+
+// 	//file_uuid := uuid.New().String()
+// 	file_uuid := uiud
+// 	fmt.Println("UUID is: ", file_uuid)
+
+// 	targetFolder := filepath.Join(root_path, finalUser)
+// 	os.MkdirAll(targetFolder, os.ModePerm)
+
+// 	targetFile := filepath.Join(targetFolder, file_uuid+ext)
+
+// 	// Upload the file to specific dst.
+// 	if err := c.SaveUploadedFile(file, targetFile); err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	// Open local file.
+// 	log.Println(targetFile)
+// 	f, err := os.Open(targetFile)
+// 	if err != nil {
+// 		respondWithError(c, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+// 	fi, err := f.Stat()
+// 	if err != nil {
+// 		log.Fatal(err)
+// 	}
+// 	fmt.Println(fi.Size())
+// 	defer f.Close()
+// 	object := filepath.Join(space, file_uuid+ext)
+
+// 	log.Println(object)
+
+// 	client, err := app.Firestore(ctx)
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	var once sync.Once
+// 	once.Do(func() {
+// 		// Create a new document.
+// 		go func() {
+// 			defer recoverPanic()
+// 			// Get Path of parent folder
+// 			if parentFolderId == "DOSSIER" || parentFolderId == "" {
+// 				// GET ARRAY PATH PARENT FOLDER
+// 				path = []interface{}{map[string]interface{}{"folderName": "DOSSIER", "Parent_id": "DOSSIER"}}
+// 			} else {
+// 				doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Where("uiud", "==", parentFolderId).Documents(ctx)
+// 				for {
+// 					doc, err := doc.Next()
+// 					if err == iterator.Done {
+// 						break
+// 					}
+// 					if err != nil {
+// 						log.Fatalf("Failed to iterate: %v", err)
+// 					}
+// 					path = doc.Data()["path"].([]interface{})
+// 					fmt.Println(uid)
+// 				}
+// 			}
+// 			if duplicate == "0" {
+// 				doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 				_, err = doc.Doc(uiud).Get(ctx)                                                                             // try to acess document
+// 				if err != nil {                                                                                             // if folder not exist
+// 					log.Println("file not exist")
+// 					v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud).Set(ctx, map[string]interface{}{
+// 						"uiud":             uiud,
+// 						"uploaded_by":      userEmail,
+// 						"name":             fileName,
+// 						"progress":         100,
+// 						"Ext":              ext,
+// 						"isUploading":      false,
+// 						"type":             "file",
+// 						"permission":       0,
+// 						"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 						"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + object,
+// 						"Parent_id":        parentFolderId,
+// 						"size":             fi.Size() / 1000,
+// 						"path":             path,
+// 						"isShared":         isShared,
+// 						"uiudUser":         finalUser,
+// 						"shared_with":      []interface{}{},
+// 					})
+
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					// add size on  folder size
+// 					exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(parentFolderId)
+// 					_, err = exe.Update(ctx, []firestore.Update{
+// 						{Path: "size", Value: firestore.Increment(fi.Size() / 1000)},
+// 						{Path: "total_files", Value: firestore.Increment(1)},
+// 					})
+// 					fmt.Println(v)
+
+// 					do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud)
+// 					_, err = do.Update(ctx, []firestore.Update{
+// 						{Path: "progress", Value: 100},
+// 						{Path: "isUploading", Value: false},
+// 					})
+// 					if err != nil {
+// 						log.Fatalln(err)
+// 					}
+// 					// Upload an object with storage.Writer.
+// 					isDone = true
+// 					defer recoverPanic()
+// 					mutex.Lock()
+// 					c.JSON(200, gin.H{"message": "fichier ajouter avec succes", "data": v})
+// 					mutex.Unlock()
+
+// 					// *************************************************************
+// 				}
+// 			} else {
+// 				branchArray := strings.Split(file.Filename, ".")
+
+// 				v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud).Set(ctx, map[string]interface{}{
+// 					"uiud":             uiud,
+// 					"name":             branchArray[0] + "(copy)." + branchArray[1],
+// 					"progress":         100,
+// 					"Ext":              ext,
+// 					"isUploading":      false,
+// 					"type":             "file",
+// 					"date_de_creation": time.Now().Format("2006-01-02 15:04:05"),
+// 					"url":              "https://storage.cloud.google.com/deskvantage-fb75f.appspot.com/" + object,
+// 					"Parent_id":        parentFolderId,
+// 					"size":             fi.Size() / 1000,
+// 					"path":             path,
+// 					"permission":       0,
+// 					"uiudUser":         finalUser,
+// 					"shared_with":      []interface{}{},
+// 				})
+
+// 				if err != nil {
+// 					log.Fatalln(err)
+// 				}
+
+// 				fmt.Println(v)
+
+// 				do := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud)
+// 				_, err = do.Update(ctx, []firestore.Update{
+// 					{Path: "progress", Value: 100},
+// 					{Path: "isUploading", Value: false},
+// 				})
+// 				if err != nil {
+// 					log.Fatalln(err)
+// 				}
+// 				// Upload an object with storage.Writer.
+// 				isDone = true
+// 				defer recoverPanic()
+// 				mutex.Lock()
+// 				c.JSON(200, gin.H{"message": "fichier ajouter avec succes", "data": v})
+// 				mutex.Unlock()
+// 				isDone = false
+// 				// add size on  folder size
+// 				c := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(parentFolderId)
+// 				_, err = c.Update(ctx, []firestore.Update{
+// 					{Path: "size", Value: firestore.Increment(fi.Size() / 1000)},
+// 					{Path: "total_files", Value: firestore.Increment(1)},
+// 				})
+
+// 				//c.JSON(201, gin.H{"message": "le fichier existe deja"})
+// 			}
+// 		}()
+// 		log.Println("isDone", isDone)
+// 		wc := storageClient.Bucket(bucket).Object(object).NewWriter(ctx)
+// 		if _, err = io.Copy(wc, f); err != nil {
+// 			respondWithError(c, http.StatusInternalServerError, err.Error())
+// 			return
+// 		}
+// 		if err := wc.Close(); err != nil {
+// 			respondWithError(c, http.StatusInternalServerError, err.Error())
+// 			return
+// 		}
+// 		// })
+// 	})
+
+// }
+
+// // Get metadata of fodler
+// func GetFolderMetaData(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	folderId := c.PostForm("uiud")
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	result := make(chan gin.H)
+
+// 	log.Println(uid)
+// 	space := fmt.Sprintf("%s", uid)
+// 	defer client.Close()
+// 	var once sync.Once
+// 	go func(_ *gin.Context) {
+// 		defer recoverPanic()
+// 		once.Do(func() {
+// 			// Get a ref to the cities collection
+// 			folderRef := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(folderId)
+// 			doc, err := folderRef.Get(ctx)
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			result <- gin.H{"data": doc.Data()}
+// 		})
+// 	}(c)
+
+// 	c.JSON(200, <-result)
+// }
+
+// /*
+// Delete file in another folder in firebase abd bucket
+// PARAMETER: FOLDER PARENT NAME , FILE NAME AND FILE UUID
+// */
+// func deleteFile(c *gin.Context) {
+
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	uiud := c.PostForm("uiud")
+// 	ext := c.PostForm("Ext")
+// 	// convert string to int
+// 	size, err := strconv.Atoi(c.PostForm("size"))
+// 	parentFolderId := c.PostForm("parentFolderId")
+// 	isShared := c.PostForm("isShared")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	var finalUser string
+// 	//valName = c.PostForm("valName")
+// 	log.Println(valName)
+// 	// /* =========   Get body Request =================*/
+// 	// body := c.Request.Body
+// 	// value, err := ioutil.ReadAll(body)
+// 	// if err != nil {
+// 	// 	fmt.Println(err.Error())
+
+// 	// }
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	log.Println("mon uiud", uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	log.Println(v)
+// 	space := fmt.Sprintf("%s", uid)
+// 	if isShared == "true" {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = space
+// 	}
+// 	object := filepath.Join(finalUser, uiud+ext)
+// 	log.Println(object)
+// 	if err := storageClient.Bucket(bucket).Object(object).Delete(ctx); err != nil {
+// 		// TODO: Handle error.
+// 	}
+// 	fmt.Println("deleted all object items in the bucket specified.")
+
+// 	/*========================= FIREBASE DELETE==============*/
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 	_, err = doc.Doc(uiud).Get(ctx)                                                                             // try to acess document
+// 	if err == nil {                                                                                             // if folder not exist
+// 		// create document
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud).Delete(ctx)
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		fmt.Println(v)
+
+// 		// remove size on parent folder
+// 		exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(parentFolderId)
+// 		// // verify total files number
+// 		// doc, err := exe.Get(ctx)
+// 		// if err != nil {
+// 		// 	log.Fatalln(err)
+// 		// }
+// 		// totalFiles := doc.Data()["total_files"].(int)
+// 		// if totalFiles > 0 {
+// 		_, err = exe.Update(ctx, []firestore.Update{
+// 			{Path: "size", Value: firestore.Increment(-size)},
+// 			{Path: "total_files", Value: firestore.Increment(-1)},
+// 		})
+// 		//	}
+// 		c.JSON(201, gin.H{"message": "le fichier a ete supprimer "})
+
+// 	} else {
+// 		c.JSON(201, gin.H{"message": "le fichier n'existe pas"})
+// 	}
+
+// }
+
+// /*
+// Delete folder and another file and folder who are in this folder
+// PARAMETER: FOLDER  NAME ,
+// */
+// func deleteFolder(c *gin.Context) {
+
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	//name := c.Param("uiud")
+// 	uiud := c.Param("uiud")
+// 	// convert string to int
+// 	size, err := strconv.Atoi(c.PostForm("size"))
+// 	parentFolderId := c.PostForm("parentFolderId")
+// 	isShared := c.PostForm("isShared")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	var finalUser string
+// 	//log.Println(name)
+// 	log.Println(valName)
+// 	log.Println(uiud)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println("mon uiud", uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	log.Println(v)
+// 	space := fmt.Sprintf("%s", uid)
+// 	if isShared == "true" {
+// 		finalUser = uiudUser
+// 	} else {
+// 		finalUser = space
+// 	}
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER") // try to acess dcoument
+// 	_, err = doc.Doc(uiud).Get(ctx)                                                                             // try to acess document
+// 	if err == nil {                                                                                             // if folder not exist
+// 		// create document
+// 		log.Println("file not exist")
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(finalUser).Collection("DOSSIER").Doc(uiud).Delete(ctx)
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+// 		fmt.Println(v, "deleted")
+
+// 		iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Where("Parent_id", "==", uiud).Documents(ctx) // try to acess document
+// 		for {
+// 			doc, err := iter.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+// 			if doc.Data()["type"] == "file" {
+// 				object := filepath.Join(space, doc.Data()["uiud"].(string)+doc.Data()["Ext"].(string))
+// 				log.Println(object)
+// 				if err := storageClient.Bucket(bucket).Object(object).Delete(ctx); err != nil {
+// 					fmt.Println(err)
+// 				}
+// 			}
+// 			v, err := doc.Ref.Delete(ctx)
+// 			if err != nil {
+// 				log.Fatalln(err)
+// 			}
+
+// 			// add size on  folder size
+// 			exe := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Collection("DOSSIER").Doc(parentFolderId)
+// 			_, err = exe.Update(ctx, []firestore.Update{
+// 				{Path: "size", Value: firestore.Increment(size)},
+// 				{Path: "total_files", Value: firestore.Increment(-1)},
+// 			})
+// 			fmt.Println(v, "deleted all files and folder in this folder")
+// 		}
+// 		c.JSON(200, gin.H{"message": "folder deleted"})
+// 	} else {
+// 		c.JSON(201, gin.H{"message": "le fichier n'existe pas"})
+// 	}
+// }
+
+// // Get all files in a folder
+
+// func setUserParameters(space, myEmail string) map[string]interface{} {
+// 	log.Println(myEmail)
+// 	ctx := context.Background()
+// 	var data map[string]interface{}
+// 	client, err := app.Firestore(ctx)
+// 	doc, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Get(ctx)
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+
+// 	m := doc.Data()
+
+// 	if len(m) == 0 {
+// 		log.Println("User not have parameter")
+// 		log.Print("data length ")
+// 		log.Println(len(data))
+// 		v, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(space).Set(ctx, map[string]interface{}{
+// 			"date_ajout":       time.Now().Format("2006-01-02 15:04:05"),
+// 			"email":            myEmail,
+// 			"permission_level": 0,
+// 		})
+// 		log.Println(v)
+// 		if err != nil {
+
+// 		}
+// 		m = map[string]interface{}{
+// 			"date_ajout":       time.Now().Format("2006-01-02 15:04:05"),
+// 			"email":            myEmail,
+// 			"permission_level": 0,
+// 		}
+// 	}
+
+// 	return m
+// }
+// func UserSpace(c *gin.Context) {
+// 	// go func() {
+// 	// 	defer recoverPanic()
+// 	ctx := context.Background()
+
+// 	client, err := app.Firestore(ctx)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	/* =========   Get body Request =================*/
+// 	body := c.Request.Body
+// 	value, err := ioutil.ReadAll(body)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+
+// 	}
+// 	ParseBranchname("Documents/dt.txt")
+
+// 	var params map[string]interface{}
+// 	json.Unmarshal([]byte(value), &params)
+// 	myEmail := fmt.Sprintf("%s", params["myEmail"])
+// 	log.Println("MOn email", myEmail)
+// 	//	valName = uiud
+// 	//log.Println(uiud)
+// 	log.Println(valName)
+// 	/* ========== End BodyRequest =============*/
+// 	//uid, ok := c.Params.Get(uiud)
+// 	//	log.Println("mon uiud", uid)
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println("mon uiud", uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	log.Println(v)
+// 	//go func() {
+// 	var config map[string]interface{}
+// 	config = setUserParameters(v, myEmail)
+// 	getUidUser(myEmail)
+// 	doc := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(v).Collection("DOSSIER").Where("Parent_id", "==", "DOSSIER").Documents(ctx)
+// 	var data []map[string]interface{}
+// 	for {
+// 		doc, err := doc.Next()
+// 		if err == iterator.Done {
+// 			break
+// 		}
+// 		if err != nil {
+// 			log.Fatalln(err)
+// 		}
+
+// 		data = append(data, doc.Data())
+
+// 	}
+// 	c.JSON(200, gin.H{"data": data, "config": config, "breadcrumb_detail": []map[string]interface{}{{"name": "DOSSIER", "id": "3"}}, "parent_folder_detail": map[string]interface{}{"name": "DeskVantage", "link": "/", "id": "DOSSIER"}, "message": "success"})
+
+// 	//}()
+// }
+
+// func ChangeUserDefaultPermission(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	value, err := strconv.Atoi(c.PostForm("value"))
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println(uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(v) // try to acess document
+// 	_, err = iter.Update(ctx, []firestore.Update{
+// 		{Path: "default_permission", Value: value},
+// 	})
+// 	if err != nil {
+// 		log.Println(err)
+// 	} else {
+// 		c.JSON(200, gin.H{"message": "Valeur de la permission mise a jour "})
+// 	}
+
+// }
+// func GetConfigUser(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println(uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	iter, err := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(v).Get(ctx) // try to acess document
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+// 	infos := iter.Data()
+// 	fmt.Printf("Document data: %#v\n", infos)
+// 	c.JSON(200, gin.H{"mesage": "Infos utilisateurs recuperer avec success", "data": infos})
+
+// }
+
+// /*
+// Get all files in a firebase folder  and bucket gcp
+// PARAMETER: FOLDER  NAME,
+// */
+
+// func GetFileOrFolder(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+
+// 	if err != nil {
+// 		log.Fatalln(err)
+// 	}
+// 	uiud := c.Param("folderName")
+// 	isShared := c.PostForm("isShared")
+// 	uiudUser := c.PostForm("uiudUser")
+// 	log.Println("Mon s")
+// 	//uiud:= c.Param("uiud")
+// 	var files []map[string]interface{}
+
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	log.Println(uid)
+// 	v := fmt.Sprintf("%s", uid)
+// 	result := make(chan gin.H)
+// 	var once sync.Once
+// 	if isShared == "false" {
+// 		go func(_ *gin.Context) {
+// 			defer recoverPanic()
+// 			once.Do(func() {
+// 				iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(v).Collection("DOSSIER").Where("Parent_id", "==", uiud).Documents(ctx) // try to acess document
+// 				if iter != nil {
+// 					for {
+// 						doc, err := iter.Next()
+// 						if err == iterator.Done {
+// 							break
+// 						}
+// 						if err != nil {
+// 							log.Fatalf("Failed to iterate: %v", err)
+// 						}
+// 						file := doc.Data()
+// 						files = append(files, file)
+// 					}
+// 				}
+
+// 				result <- gin.H{"data": files}
+
+// 			})
+// 		}(c.Copy())
+// 	} else {
+
+// 		//uiud := c.PostForm("uiud")
+// 		go func(_ *gin.Context) {
+// 			defer recoverPanic()
+// 			fmt.Println(uiudUser)
+// 			once.Do(func() {
+// 				iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(string(uiudUser)).Collection("DOSSIER").Where("Parent_id", "==", uiud).Documents(ctx) // try to acess document
+// 				if iter != nil {
+// 					for {
+// 						doc, err := iter.Next()
+// 						if err == iterator.Done {
+// 							break
+// 						}
+// 						if err != nil {
+// 							log.Fatalf("Failed to iterate: %v", err)
+// 						}
+// 						file := doc.Data()
+// 						files = append(files, file)
+// 					}
+// 				}
+
+// 				result <- gin.H{"data": files}
+
+// 			})
+// 		}(c.Copy())
+// 	}
+// 	c.JSON(200, <-result)
+
+// }
+
+// func generateV4GetObjectSignedURL1(w io.Writer, bucket, object string) (string, error) {
+// 	// bucket := "bucket-name"
+// 	//	object := key + "/" + fileName
+
+// 	ctx := context.Background()
+// 	client, err := storage.NewClient(ctx)
+// 	if err != nil {
+// 		return "", fmt.Errorf("storage.NewClient: %v", err)
+// 	}
+// 	defer client.Close()
+// 	opts := &storage.SignedURLOptions{
+// 		Scheme:  storage.SigningSchemeV4,
+// 		Method:  "GET",
+// 		Expires: time.Now().Add(2 * time.Hour),
+// 	}
+
+// 	u, err := client.Bucket(bucket).SignedURL(object, opts)
+// 	if err != nil {
+// 		return "", fmt.Errorf("Bucket(%q).SignedURL: %v", bucket, err)
+// 	}
+
+// 	fmt.Fprintln(w, "Generated GET signed URL:")
+// 	fmt.Fprintf(w, "%q\n", u)
+// 	fmt.Fprintln(w, "You can use this URL with any user agent, for example:")
+// 	fmt.Fprintf(w, "curl %q\n", u)
+// 	return u, nil
+// }
+// func generateV4PutObjectSignedURL(c *gin.Context) {
+// 	// bucket := "bucket-name"
+// 	// object := "object-name"
+
+// 	ctx := context.Background()
+// 	client, err := storage.NewClient(ctx)
+// 	if err != nil {
+// 		fmt.Errorf("storage.NewClient: %v", err)
+// 	}
+// 	defer client.Close()
+// 	// authenticate user
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	v := fmt.Sprintf("%s", uid)
+// 	body := c.Request.Body
+// 	value, err := ioutil.ReadAll(body)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+
+// 	}
+
+// 	var params map[string]interface{}
+// 	json.Unmarshal([]byte(value), &params)
+// 	fileName := fmt.Sprintf("%s", params["fileName"])
+// 	log.Println(fileName)
+// 	object := v + "/" + fileName
+// 	log.Println(object)
+// 	opts := &storage.SignedURLOptions{
+// 		Scheme: storage.SigningSchemeV4,
+// 		Method: "GET",
+// 		Headers: []string{
+// 			"Content-Type:application/octet-stream",
+// 		},
+// 		Expires: time.Now().Add(15 * time.Minute),
+// 	}
+
+// 	u, err := client.Bucket(bucket).SignedURL(object, opts)
+// 	if err != nil {
+// 		fmt.Errorf("Bucket(%q).SignedURL: %v", bucket, err)
+// 	} else {
+// 		c.JSON(400, gin.H{"error": "", "Url": u})
+// 	}
+// 	log.Println("Mon url#####################################", u)
+// 	c.JSON(200, gin.H{"error": "", "Url": u})
+
+// }
+
+// // create function tog generate url file
+// func generateUrlFunc(c *gin.Context, fileName string) string {
+// 	object := key + "/" + fileName
+// 	log.Println("+filename" + object)
+// 	jsonKey, err := ioutil.ReadFile("./deskvantage-fb75f-b2bd6022e899.json")
+// 	if err != nil {
+// 		respondWithError(c, http.StatusInternalServerError, err.Error())
+// 		return ""
+// 	}
+
+// 	conf, err := google.JWTConfigFromJSON(jsonKey)
+// 	if err != nil {
+// 		respondWithError(c, http.StatusInternalServerError, err.Error())
+// 		return ""
+// 	}
+// 	defer recoverPanic()
+// 	url, err := storage.SignedURL(bucket, object, &storage.SignedURLOptions{
+// 		Method:         "GET",
+// 		GoogleAccessID: conf.Email,
+// 		PrivateKey:     conf.PrivateKey,
+// 		Expires:        time.Now().Add(2 * time.Hour),
+// 	})
+// 	if err != nil {
+// 		respondWithError(c, http.StatusInternalServerError, err.Error())
+// 		return ""
+// 	}
+// 	log.Println(url)
+// 	return url
+// }
+
+// func generateV4GetObjectSignedURL(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := storage.NewClient(ctx)
+// 	if err != nil {
+// 		fmt.Errorf("storage.NewClient: %v", err)
+// 	}
+// 	defer client.Close()
+// 	defer recoverPanic()
+// 	//defer client.Close()
+// 	body := c.Request.Body
+// 	value, err := ioutil.ReadAll(body)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+// 	}
+
+// 	var params map[string]interface{}
+// 	json.Unmarshal([]byte(value), &params)
+// 	fileName := fmt.Sprintf("%s", params["fileName"])
+// 	fmt.Println("print file Name:")
+// 	log.Println(fileName)
+// 	fmt.Println("---------++++++++++++")
+
+// 	// call generate url function
+// 	url := generateUrlFunc(c, fileName)
+// 	c.JSON(http.StatusOK, gin.H{"error": "", "Url": url})
+// }
+
+// /*
+// Read file by path directory file in firebase and bucket || get path of file
+// PARAMETER: FILE NAME
+// */
+// func ReadFile(c *gin.Context) {
+// 	ctx := context.Background()
+// 	client, err := app.Firestore(ctx)
+// 	/* =========   Get body Request =================*/
+// 	body := c.Request.Body
+// 	value, err := ioutil.ReadAll(body)
+// 	if err != nil {
+// 		fmt.Println(err.Error())
+
+// 	}
+// 	var data map[string]interface{}
+// 	json.Unmarshal([]byte(value), &data)
+// 	fileName := fmt.Sprintf("%s", data["fileName"])
+// 	//	ext := fmt.Sprintf("%s", data["Ext"])
+// 	/* ========== End BodyRequest =============*/
+// 	uid, ok := c.Get(valName)
+// 	if !ok {
+// 		respondWithError(c, http.StatusUnauthorized, "Invalid UID")
+// 		return
+// 	}
+// 	fmt.Println(uid)
+// 	iter := client.Collection("CompanyID").Doc("1234").Collection("medias").Doc(valName).Collection("DOSSIER").Where("name", "==", fileName).Documents(ctx) // try to acess document
+// 	if iter != nil {
+// 		var files []map[string]interface{}
+// 		for {
+// 			doc, err := iter.Next()
+// 			if err == iterator.Done {
+// 				break
+// 			}
+// 			if err != nil {
+// 				log.Fatalf("Failed to iterate: %v", err)
+// 			}
+// 			file := doc.Data()
+// 			//json.Unmarshal([]byte(value), &files)
+// 			files = append(files, file)
+// 		}
+// 		c.JSON(200, gin.H{"message": "success", "data": files})
+// 	} else {
+// 		c.JSON(404, gin.H{"message": "file not exist"})
+// 	}
+// }
+
+// func (fam *FirebaseAuthMiddleware) verifyToken(c *gin.Context) {
+
+// 	token := c.Param("token")
+// 	fmt.Println(token)
+
+// 	_, err := fam.cli.VerifyIDToken(context.Background(), token)
+
+// 	if err != nil {
+// 		respondWithError(c, http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+
+// 	fmt.Println("Token is valid")
+// 	c.JSON(http.StatusOK, gin.H{"error": "", "message": "token valid"})
+
+// }
+
+// type FirebaseAuthMiddleware struct {
+// 	cli *auth.Client
+// }
+
+// // New is constructor of the middleware
+// func newMiddleware() (*FirebaseAuthMiddleware, error) {
+
+// 	auth, err := app.Auth(context.Background())
+// 	if err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &FirebaseAuthMiddleware{
+// 		cli: auth,
+// 	}, nil
+// }
+
+// func respondWithError(c *gin.Context, code int, message interface{}) {
+// 	c.AbortWithStatusJSON(code, gin.H{"error": code, "message": message})
+// }
+
+// // MiddlewareFunc is function to verify token
+// func (fam *FirebaseAuthMiddleware) MiddlewareFunc() gin.HandlerFunc {
+// 	return func(c *gin.Context) {
+// 		authHeader := c.Request.Header.Get("Authorization")
+// 		token := strings.Replace(authHeader, "Bearer ", "", 1)
+// 		idToken, err := fam.cli.VerifyIDToken(context.Background(), token)
+
+// 		if err != nil {
+// 			fmt.Println("the firebase midleware error!")
+// 			fmt.Println(err)
+// 			respondWithError(c, http.StatusUnauthorized, "Invalid API token")
+// 			return
+// 		}
+
+// 		log.Println("User ID is " + idToken.UID)
+// 		c.Set(valName, idToken.UID)
+// 		key = idToken.UID
+// 		log.Println(key)
+// 		c.Next()
+// 	}
+// }
