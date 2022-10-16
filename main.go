@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"paymate/users"
+	"paymate/handler"
 	"strings"
 
 	"cloud.google.com/go/firestore"
@@ -70,13 +70,14 @@ func main() {
 		MaxAge:          8640024576987,
 	}))
 	r.Use(CORSMiddleware())
-	middleware, err := newMiddleware()
-	if err != nil {
-		panic(err)
-	}
-	r.GET("/verify/:token", middleware.verifyToken)
-	r.Use(middleware.MiddlewareFunc())
-	r.GET("/create/user", users.CreateUser)
+	// middleware, err := newMiddleware()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	//r.GET("/verify/:token", middleware.verifyToken)
+	//r.Use(middleware.MiddlewareFunc())
+	r.POST("/create/user", handler.CreateUser)
+	r.PUT("/update/user/:user_id", handler.UpdateUser)
 	r.GET("/", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{
