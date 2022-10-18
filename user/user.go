@@ -68,6 +68,9 @@ func UpdateUser(app *firebase.App, c *gin.Context, user Users) {
 		{Path: "firstName", Value: use["firstName"]},
 		{Path: "lastName", Value: use["lastName"]},
 	})
+	if err != nil {
+		log.Println(err)
+	}
 	userData := client.Collection("Users").Doc(string(user.Uiud))
 	doc, err := userData.Get(ctx)
 	if err != nil {
@@ -75,4 +78,23 @@ func UpdateUser(app *firebase.App, c *gin.Context, user Users) {
 	}
 	log.Println(doc.Data())
 	c.JSON(200, gin.H{"message": "user profil was be  updated with success", "user": doc.Data()})
+}
+
+func UpdateAmountUser(app *firebase.App, userId string, amount float64) {
+	ctx := context.Background()
+	client, err := app.Firestore(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer client.Close()
+
+	updateAmount := client.Collection("Users").Doc(userId) // try to acess document
+	_, err = updateAmount.Update(ctx, []firestore.Update{
+		{Path: "amount", Value: firestore.Increment(amount)},
+	})
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("UpdateAmount=>  Amount Update succesfully")
+	}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"paymate/user"
-	"strconv"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -28,12 +27,11 @@ func CreateUser(c *gin.Context) {
 		log.Fatalln(err)
 	}
 	newUser := new(user.Users)
-	_amount, err := strconv.ParseInt(c.PostForm("amount"), 10, 64)
 	newUser = &user.Users{
 		Uiud:      c.PostForm("uiud"),
 		FirstName: c.PostForm("firstName"),
 		LastName:  c.PostForm("lastName"),
-		Amount:    _amount,
+		Amount:    0,
 		Phone:     c.PostForm("phone"),
 	}
 	user.AddUser(app, c, *newUser)

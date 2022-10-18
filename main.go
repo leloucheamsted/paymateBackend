@@ -69,6 +69,7 @@ func main() {
 		AllowAllOrigins: true,
 		MaxAge:          8640024576987,
 	}))
+
 	r.Use(CORSMiddleware())
 	// middleware, err := newMiddleware()
 	// if err != nil {
@@ -78,6 +79,8 @@ func main() {
 	//r.Use(middleware.MiddlewareFunc())
 	r.POST("/create/user", handler.CreateUser)
 	r.PUT("/update/user/:user_id", handler.UpdateUser)
+	r.POST("/reload/wallet", handler.ReloadWallet)
+	r.GET("/confirm/reload/:transID", handler.ConfirmReload)
 	r.GET("/", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{
