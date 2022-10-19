@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"paymate/handler"
 	"strings"
+
+	"paymate/handler"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -77,10 +78,13 @@ func main() {
 	// }
 	//r.GET("/verify/:token", middleware.verifyToken)
 	//r.Use(middleware.MiddlewareFunc())
-	r.POST("/create/user", handler.CreateUser)
-	r.PUT("/update/user/:user_id", handler.UpdateUser)
-	r.POST("/reload/wallet", handler.ReloadWallet)
-	r.GET("/confirm/reload/:transID", handler.ConfirmReload)
+	r.POST("/user/create", handler.CreateUser)
+	r.PUT("/user/update/:user_id", handler.UpdateUser)
+	r.POST("/wallet/reload", handler.ReloadWallet)
+	r.GET("/wallet/reload/confirm/:transID", handler.ConfirmReload)
+	r.POST("/card/create", handler.CreateCard)
+	r.POST("/card/reload", handler.ReloadCard)
+	r.GET("/card/details/:card_id", handler.CardDetails)
 	r.GET("/", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{

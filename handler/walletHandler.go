@@ -33,7 +33,7 @@ type PaymentResponse struct {
 	Date    string
 }
 
-func randomString(n int, alphabet []rune) string {
+func RandomString(n int, alphabet []rune) string {
 
 	alphabetSize := len(alphabet)
 	var sb strings.Builder
@@ -54,7 +54,7 @@ func ReloadWallet(c *gin.Context) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	ExtId := randomString(20, alphabet)
+	ExtId := RandomString(20, alphabet)
 	_amount, err := strconv.ParseInt(c.PostForm("amount"), 10, 64)
 	if err != nil {
 		log.Println(err)

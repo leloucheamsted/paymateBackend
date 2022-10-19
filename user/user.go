@@ -80,7 +80,7 @@ func UpdateUser(app *firebase.App, c *gin.Context, user Users) {
 	c.JSON(200, gin.H{"message": "user profil was be  updated with success", "user": doc.Data()})
 }
 
-func UpdateAmountUser(app *firebase.App, userId string, amount float64) {
+func ReloadAmountUser(app *firebase.App, userId string, amount float64) {
 	ctx := context.Background()
 	client, err := app.Firestore(ctx)
 	if err != nil {
@@ -96,5 +96,44 @@ func UpdateAmountUser(app *firebase.App, userId string, amount float64) {
 		log.Println(err)
 	} else {
 		log.Println("UpdateAmount=>  Amount Update succesfully")
+	}
+}
+
+func RemoveAmountUser(app *firebase.App, userId string, amount float64) {
+	ctx := context.Background()
+	client, err := app.Firestore(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer client.Close()
+
+	updateAmount := client.Collection("Users").Doc(userId) // try to acess document
+	_, err = updateAmount.Update(ctx, []firestore.Update{
+		{Path: "amount", Value: firestore.Increment(-amount)},
+	})
+	if err != nil {
+		log.Println(err)
+	} else {
+		log.Println("UpdateAmount=>  Amount Update succesfully")
+	}
+}
+
+func UpdateUserCardHolder(app *firebase.App, userId string, params map[string]interface{}) {
+	ctx := context.Background()
+	client, err := app.Firestore(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer client.Close()
+
+	updateAmount := client.Collection("Users").Doc(userId) // try to acess document
+	_, err = updateAmount.Update(ctx, []firestore.Update{
+		{Path: "cardHolder", Value: params},
+	})
+	if err != nil {
+		log.Println("Error=> upload card holder details failed")
+		log.Println(err)
+	} else {
+		log.Println("UpdateCardHolder=>  Card details Update succesfully")
 	}
 }

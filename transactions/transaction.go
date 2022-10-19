@@ -3,7 +3,7 @@ package transaction
 import (
 	"context"
 	"log"
-	"paymate/user"
+	"paymate/src/user"
 
 	firebase "firebase.google.com/go"
 )
@@ -29,6 +29,6 @@ func AddTransaction(app *firebase.App, transaction map[string]interface{}) {
 		log.Println(err)
 	}
 	log.Println(transaction["id"])
-	user.UpdateAmountUser(app, transaction["userId"].(string), transaction["amount"].(float64))
+	user.ReloadAmountUser(app, transaction["userId"].(string), transaction["amount"].(float64))
 	log.Println("New transaction=>", newTransaction)
 }
