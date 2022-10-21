@@ -3,7 +3,7 @@ package transaction
 import (
 	"context"
 	"log"
-	"paymate/src/user"
+	"paymate/user"
 
 	firebase "firebase.google.com/go"
 )

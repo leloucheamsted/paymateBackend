@@ -1,46 +1,18 @@
-# ##
-# ## Build
-# ##
+FROM golang:1.17-alpine AS builder
+ENV GO111MODULE=on \
+    CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64
 
-# FROM golang:1.16-buster AS build
+RUN mkdir -p /app
+WORKDIR /app
 
-# WORKDIR /app
-
-# COPY go.mod .
-# COPY go.sum .
-# RUN go mod download
-
-# COPY *.go ./
-
-# RUN go build -o /paymate
-
-# ##
-# ## Deploy
-# ##
-
-# FROM gcr.io/distroless/base-debian10
-
-# WORKDIR /
-
-# COPY --from=build /paymate /paymate
-
-# EXPOSE 8080
-
-# USER nonroot:nonroot
-
-# ENTRYPOINT ["/paymate"]
-
-FROM golang:1.16-alpine
-WORKDIR /go/src/fm-api
+COPY go.mod .
+COPY go.sum .
 COPY . .
-
-COPY go.mod ./
-COPY go.sum ./
 RUN go mod download
-
-RUN go build -o  paymate .
-
+RUN go build -o ./app 
 
 EXPOSE 8080
 
-CMD [ "/paymate" ]
+ENTRYPOINT ["./app"]

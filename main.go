@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
-
 	"paymate/handler"
+	"strings"
 
 	"cloud.google.com/go/firestore"
 	firebase "firebase.google.com/go"
@@ -115,7 +114,6 @@ type FirebaseAuthMiddleware struct {
 	cli *auth.Client
 }
 
-// New is constructor of the middleware
 func newMiddleware() (*FirebaseAuthMiddleware, error) {
 
 	auth, err := app.Auth(context.Background())
