@@ -14,7 +14,7 @@ import (
 // Test direct payment
 // Parameters we need
 // Phone, amount,
-func TestPayment(payment Payment) map[string]interface{} {
+func PaymentFunc(payment Payment) map[string]interface{} {
 	method := "POST"
 	var data map[string]interface{}
 
@@ -59,7 +59,7 @@ func TestPayment(payment Payment) map[string]interface{} {
 // Test payment status
 // Parameter we need
 // transaction Id
-func TestPaymentStatus(transId string) map[string]interface{} {
+func PaymentStatusFunc(transId string) map[string]interface{} {
 	method := "GET"
 	var data map[string]interface{}
 

@@ -13,10 +13,12 @@ import (
 	"strings"
 
 	firebase "firebase.google.com/go"
+	guuid "github.com/google/uuid"
 	"google.golang.org/api/option"
 )
 
 var (
+	number   []rune = []rune("123456789009876543210123456789")
 	alphabet []rune = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890")
 
 	defaultUrl = "https://issuecards.api.bridgecard.co/v1/issuing/sandbox"
@@ -37,6 +39,7 @@ type FunCard struct {
 }
 
 const (
+	device       = 657
 	credFileName = "./credentials/serviceAccountKey.json"
 )
 
@@ -47,6 +50,19 @@ func RandomString(n int, alphabet []rune) string {
 
 	for i := 0; i < n; i++ {
 		ch := alphabet[rand.Intn(alphabetSize)]
+		sb.WriteRune(ch)
+	}
+
+	s := sb.String()
+	return s
+}
+func RandomInteger(n int, number []rune) string {
+
+	alphabetSize := len(number)
+	var sb strings.Builder
+
+	for i := 0; i < n; i++ {
+		ch := number[rand.Intn(alphabetSize)]
 		sb.WriteRune(ch)
 	}
 
@@ -65,8 +81,11 @@ func RegisterCardHolder(cardHolder CardHolder) map[string]interface{} {
 	if err != nil {
 		log.Fatalln(err)
 	}
+	id := guuid.New()
+
+	fmt.Println(id)
 	method := "POST"
-	bodyRequest := "{\n  \"first_name\": " + cardHolder.FirstName + ",\n  \"last_name\": " + cardHolder.LastName + ",\n  \"address\": {\n    \"address\": \"9 South Street\",\n    \"city\": \"Douala\",\n    \"state\": \"Littoral\",\n    \"country\": \"Cameroon\",\n    \"postal_code\": \"1000242\",\n    \"house_no\": \"13\"\n  },\n  \"phone\": " + cardHolder.Phone + ",\n  \"email_address\":\"testingboy@gmail.com\",\n  \"identity\": {\n      \"id_type\": \"CAMEROON_NATIONAL_ID\",\n      \"id_no\": \"74838920202\",\n      \"id_image\": \"https://image.com\",\n      \"first_name\": " + cardHolder.FirstName + ",\n      \"last_name\": " + cardHolder.LastName + "\n  },\n   \"meta_data\":{\"userId\":" + cardHolder.UserID + "}\n}"
+	bodyRequest := "{\n  \"first_name\":\" " + cardHolder.FirstName + "\",\n  \"last_name\":\" " + cardHolder.LastName + "\",\n  \"address\": {\n    \"address\": \"9 South Street\",\n    \"city\": \"Douala\",\n    \"state\": \"Littoral\",\n    \"country\": \"Cameroon\",\n    \"postal_code\": \"1000242\",\n    \"house_no\": \"13\"\n  },\n  \"phone\":\" " + cardHolder.Phone + "\",\n  \"email_address\":\"omnipay@gmail.com\",\n  \"identity\": {\n      \"id_type\": \"CAMEROON_NATIONAL_ID\",\n      \"id_no\":\" " + id.String() + "\",\n\"id_image\": \"https://image.com\",\n \"first_name\":\" " + cardHolder.FirstName + "\",\n\"last_name\":\"" + cardHolder.LastName + "\"\n  },\n   \"meta_data\":{\"userId\":\"" + cardHolder.UserID + "\"}\n}"
 	payload := strings.NewReader(bodyRequest)
 
 	var data map[string]interface{}
@@ -96,18 +115,20 @@ func RegisterCardHolder(cardHolder CardHolder) map[string]interface{} {
 	fmt.Println(string(body))
 	json.Unmarshal(body, &data)
 	var response map[string]interface{}
+	holderId := data["data"].(map[string]interface{})["cardholder_id"]
 
 	if data["status"] == "success" {
-		response = GetCardHolderDetails(app, data["cardholder_id"].(string), cardHolder.UserID)
-		// if responseStatut["status"] == "success" {
-		// 	response = TestCreateCard(data["cardholder_id"].(string), cardHolder.UserID)
-		// }
+		responseStatut := GetCardHolderDetails(app, holderId.(string), cardHolder.UserID)
+		if responseStatut["status"] == "success" {
+			log.Println("OnResponse=> CardHolder Created")
+			response = CreateUserCard(holderId.(string), cardHolder.UserID)
+		}
 	}
 	return response
 }
 
 func GetCardHolderDetails(app *firebase.App, cardHolderId, user_id string) map[string]interface{} {
-	cardHolder_id := "4391b2fac2534b549a79b9411e6098ee"
+	cardHolder_id := cardHolderId
 	url := defaultUrl + "/cardholder/get_cardholder?cardholder_id=" + cardHolder_id
 	method := "GET"
 	var data map[string]interface{}
@@ -166,17 +187,20 @@ func GetCardDetails(card_id string) map[string]interface{} {
 		return nil
 	}
 	fmt.Println(string(body))
+	log.Println("OnResponse=> Get Card details")
+	//data["createAt"] = time.Now().Format("2006-01-02 15:04:05")
 	json.Unmarshal(body, &data)
 	SaveCard(data)
 	return data
 
 }
-func CreateCard(holderId, userId string) map[string]interface{} {
+func CreateUserCard(holderId, userId string) map[string]interface{} {
 	url := defaultUrl + "/cards/create_card"
 	var data map[string]interface{}
 	var response map[string]interface{}
 	method := "POST"
-	bodyRequest := "{\n   \"cardholder_id\": " + holderId + ",\n  \"card_type\": \"virtual\",\n  \"card_brand\": \"Visa\",\n  \"card_currency\": \"USD\",\n  \"meta_data\": {\"user_id\": " + userId + "}\n}"
+
+	bodyRequest := "{\n   \"cardholder_id\":\"" + holderId + "\",\n  \"card_type\": \"virtual\",\n  \"card_brand\": \"Visa\",\n  \"card_currency\": \"USD\",\n  \"meta_data\": {\"user_id\":\" " + userId + "\"}\n}"
 	payload := strings.NewReader(bodyRequest)
 
 	client := &http.Client{}
@@ -205,8 +229,8 @@ func CreateCard(holderId, userId string) map[string]interface{} {
 	json.Unmarshal(body, &data)
 
 	if data["status"] == "success" {
-
-		response = GetCardDetails(data["card_id"].(string))
+		log.Println("OnResponse=> Card Created")
+		response = GetCardDetails(data["data"].(map[string]interface{})["card_id"].(string))
 	}
 	return response
 }
@@ -220,20 +244,26 @@ func SaveCard(cards map[string]interface{}) {
 	fmt.Println(cards)
 	defer client.Close()
 
+	log.Println("OnResponse=> Saved card data operation")
 	log.Println(cards)
-
-	newUser, err := client.Collection("Cards").NewDoc().Create(ctx, cards)
+	newCard, err := client.Collection("Cards").NewDoc().Create(ctx, cards)
 	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
-	log.Println(newUser)
+	log.Println(newCard)
 }
 
 func ReloadCard(cardFunc FunCard) map[string]interface{} {
 	url := defaultUrl + "/cards/fund_card"
 	method := "PATCH"
 	TransactionRef := RandomString(10, alphabet)
-	bodyRequest := "{\n    \"card_id\": " + cardFunc.CardId + ",\n  \"amount\": " + cardFunc.Amount + ",\n  \"transaction_reference\": " + TransactionRef + ",\n  \"currency\": \"USD\"\n}"
+	_amount, err := strconv.Atoi(cardFunc.Amount)
+	if err != nil {
+		log.Println("OnError=> ", err)
+	}
+	_amountConv := _amount / device
+
+	bodyRequest := "{\n    \"card_id\": " + cardFunc.CardId + ",\n  \"amount\": " + string(rune(_amountConv)) + ",\n  \"transaction_reference\": " + TransactionRef + ",\n  \"currency\": \"USD\"\n}"
 	payload := strings.NewReader(bodyRequest)
 	var data map[string]interface{}
 
@@ -260,7 +290,6 @@ func ReloadCard(cardFunc FunCard) map[string]interface{} {
 		return nil
 	}
 	json.Unmarshal(body, &data)
-	_amount, err := strconv.ParseInt(cardFunc.Amount, 10, 64)
 	if err != nil {
 		log.Println("Parse error=>", err)
 	}

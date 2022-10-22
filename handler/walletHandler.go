@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"math/rand"
+	"paymate/user"
 	"strconv"
 	"strings"
 
@@ -68,7 +69,7 @@ func ReloadWallet(c *gin.Context) {
 		Message:    "Hello Paymate",
 		Email:      "cabrauleketchanga@gmail.com",
 	}
-	var payment = TestPayment(newPayment)
+	var payment = PaymentFunc(newPayment)
 
 	c.JSON(201, gin.H{"message": "Payment Accepted", "data": payment})
 
@@ -82,6 +83,32 @@ func ConfirmReload(c *gin.Context) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	transId := c.Param("transID")
-	c.JSON(200, gin.H{"data": TestPaymentStatus(transId)})
+	transId := c.Param("id")
+	c.JSON(200, gin.H{"data": PaymentStatusFunc(transId)})
+}
+
+func GetLatestTransaction(c *gin.Context) {
+	ctx := context.Background()
+	opt := option.WithCredentialsFile(credFileName)
+	var err error
+	app, err = firebase.NewApp(ctx, nil, opt)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	Id := c.Param("id")
+
+	user.GetLatestTransaction(app, c, Id)
+}
+
+func GetAllTransaction(c *gin.Context) {
+	ctx := context.Background()
+	opt := option.WithCredentialsFile(credFileName)
+	var err error
+	app, err = firebase.NewApp(ctx, nil, opt)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	Id := c.Param("id")
+
+	user.GetAllTransaction(app, c, Id)
 }

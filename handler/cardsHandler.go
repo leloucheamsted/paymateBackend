@@ -55,7 +55,8 @@ func ReloadCard(c *gin.Context) {
 	var response1 = cards.ReloadCard(*newFund)
 	var data map[string]interface{}
 	if response1["status"] == "success" {
-		c.JSON(200, gin.H{"status": "success", "data": response1})
+		var response = cards.GetCardDetails(newFund.CardId)
+		c.JSON(200, gin.H{"status": "success", "data": response})
 	} else {
 		c.JSON(401, gin.H{"status": "failed", "data": data})
 	}

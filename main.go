@@ -77,13 +77,16 @@ func main() {
 	// }
 	//r.GET("/verify/:token", middleware.verifyToken)
 	//r.Use(middleware.MiddlewareFunc())
-	r.POST("/user/create", handler.CreateUser)
-	r.PUT("/user/update/:user_id", handler.UpdateUser)
-	r.POST("/wallet/reload", handler.ReloadWallet)
-	r.GET("/wallet/reload/confirm/:transID", handler.ConfirmReload)
-	r.POST("/card/create", handler.CreateCard)
-	r.POST("/card/reload", handler.ReloadCard)
-	r.GET("/card/details/:card_id", handler.CardDetails)
+	r.POST("User/Create", handler.CreateUser)
+	r.GET("User/GetUser/:id", handler.GetUserByID)
+	r.GET("/GetUser/AllTransactions/:id", handler.GetAllTransaction)
+	r.GET("/GetUser/LalestTransactions/:id", handler.GetLatestTransaction)
+	r.PUT("/User/Update/:id", handler.UpdateUser)
+	r.POST("/Wallet/Reload", handler.ReloadWallet)
+	r.GET("/Wallet/Reload/Confirm/:id", handler.ConfirmReload)
+	r.POST("/Card/Create", handler.CreateCard)
+	r.POST("/Card/Reload", handler.ReloadCard)
+	r.GET("/Card/Details/:card_id", handler.CardDetails)
 	r.GET("/", func(c *gin.Context) {
 
 		c.JSON(200, gin.H{

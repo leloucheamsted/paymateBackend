@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"paymate/user"
+	"time"
 
 	firebase "firebase.google.com/go"
 )
@@ -24,11 +25,12 @@ func AddTransaction(app *firebase.App, transaction map[string]interface{}) {
 		log.Fatalln(err)
 	}
 	defer client.Close()
+	transaction["createAt"] = time.Now().Format("2006-01-02 15:04:05")
 	newTransaction, err := client.Collection("Transactions").NewDoc().Create(ctx, transaction)
 	if err != nil {
 		log.Println(err)
 	}
 	log.Println(transaction["id"])
-	user.ReloadAmountUser(app, transaction["userId"].(string), transaction["amount"].(float64))
+	user.ReloadAmountUser(app, transaction["userId"].(string), transaction["revenue"].(float64))
 	log.Println("New transaction=>", newTransaction)
 }

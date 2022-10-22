@@ -36,6 +36,18 @@ func CreateUser(c *gin.Context) {
 	}
 	user.AddUser(app, c, *newUser)
 }
+func GetUserByID(c *gin.Context) {
+	ctx := context.Background()
+	opt := option.WithCredentialsFile(credFileName)
+	var err error
+	app, err = firebase.NewApp(ctx, nil, opt)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	id := c.Param("id")
+	log.Println(id)
+	user.GetUser(app, c, id)
+}
 func UpdateUser(c *gin.Context) {
 	ctx := context.Background()
 	opt := option.WithCredentialsFile(credFileName)
@@ -46,7 +58,7 @@ func UpdateUser(c *gin.Context) {
 	}
 	User := new(user.Users)
 	User = &user.Users{
-		Uiud:      c.Param("user_id"),
+		Uiud:      c.Param("id"),
 		FirstName: c.PostForm("firstName"),
 		LastName:  c.PostForm("lastName"),
 	}
