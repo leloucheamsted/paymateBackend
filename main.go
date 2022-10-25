@@ -77,8 +77,8 @@ func main() {
 	// }
 	//r.GET("/verify/:token", middleware.verifyToken)
 	//r.Use(middleware.MiddlewareFunc())
-	r.POST("User/Create", handler.CreateUser)
-	r.GET("User/GetUser/:id", handler.GetUserByID)
+	r.POST("/User/Create", handler.CreateUser)
+	r.GET("/User/GetUser/:id", handler.GetUserByID)
 	r.GET("/GetUser/AllTransactions/:id", handler.GetAllTransaction)
 	r.GET("/GetUser/LalestTransactions/:id", handler.GetLatestTransaction)
 	r.PUT("/User/Update/:id", handler.UpdateUser)

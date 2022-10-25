@@ -57,21 +57,28 @@ func GetUser(app *firebase.App, c *gin.Context, id string) {
 	}
 	fmt.Println(id)
 	defer client.Close()
-
+	var user Users
 	log.Println(id)
 
 	userData, err := client.Collection("Users").Doc(id).Get(ctx)
 	if err != nil {
 		log.Println(err)
 	}
-	user := userData.Data()
+	log.Println(userData.Data())
+	user.FirstName = userData.Data()["firstName"].(string)
+	user.LastName = userData.Data()["lastName"].(string)
+	user.Amount = int64(userData.Data()["amount"].(float64))
+	user.Phone = userData.Data()["phone"].(string)
+	//user["firstName"] = userData.Data()["firstName"]
+	//user["lastName"] = userData.Data()["lastName"]
+	//user["phone"] = userData.Data()["phone"]
 	fmt.Printf("Document data: %#v\n", user)
 	if err != nil {
 		log.Println(err)
 		c.JSON(404, gin.H{"status": "failed", "message": err, "data": user})
 	}
 	log.Println(user)
-	c.JSON(200, gin.H{"status": "success", "user": user})
+	c.JSON(200, user)
 
 }
 func UpdateUser(app *firebase.App, c *gin.Context, user Users) {
@@ -115,10 +122,10 @@ func ReloadAmountUser(app *firebase.App, userId string, amount float64) {
 		log.Fatalln(err)
 	}
 	defer client.Close()
-
+	log.Println("OnData=> ", userId, amount)
 	updateAmount := client.Collection("Users").Doc(userId) // try to acess document
 	_, err = updateAmount.Update(ctx, []firestore.Update{
-		{Path: "amount", Value: firestore.Increment(amount)},
+		{Path: "amount", Value: firestore.Increment(-amount)},
 	})
 	if err != nil {
 		log.Println(err)
@@ -131,10 +138,10 @@ func RemoveAmountUser(app *firebase.App, userId string, amount float64) {
 	ctx := context.Background()
 	client, err := app.Firestore(ctx)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 	defer client.Close()
-
+	log.Println("OnData => RemoveAmountUser ", userId, amount)
 	updateAmount := client.Collection("Users").Doc(userId) // try to acess document
 	_, err = updateAmount.Update(ctx, []firestore.Update{
 		{Path: "amount", Value: firestore.Increment(-amount)},
@@ -142,7 +149,7 @@ func RemoveAmountUser(app *firebase.App, userId string, amount float64) {
 	if err != nil {
 		log.Println(err)
 	} else {
-		log.Println("UpdateAmount=>  Amount Update succesfully")
+		log.Println("OnResponse =>  Amount Update succesfully")
 	}
 }
 

@@ -256,14 +256,16 @@ func SaveCard(cards map[string]interface{}) {
 func ReloadCard(cardFunc FunCard) map[string]interface{} {
 	url := defaultUrl + "/cards/fund_card"
 	method := "PATCH"
-	TransactionRef := RandomString(10, alphabet)
+	TransactionRef := RandomString(30, alphabet)
 	_amount, err := strconv.Atoi(cardFunc.Amount)
 	if err != nil {
 		log.Println("OnError=> ", err)
+	} else {
+		log.Println("OnResponse=> My amount in XCFA", _amount)
 	}
 	_amountConv := _amount / device
-
-	bodyRequest := "{\n    \"card_id\": " + cardFunc.CardId + ",\n  \"amount\": " + string(rune(_amountConv)) + ",\n  \"transaction_reference\": " + TransactionRef + ",\n  \"currency\": \"USD\"\n}"
+	log.Println("OnResponse=> My amount  in $", strconv.Itoa(_amountConv))
+	bodyRequest := "{\n    \"card_id\":\"" + cardFunc.CardId + "\",\n  \"amount\":\"" + strconv.Itoa(_amountConv) + "\",\n  \"transaction_reference\": \"" + TransactionRef + "\",\n  \"currency\": \"USD\"\n}"
 	payload := strings.NewReader(bodyRequest)
 	var data map[string]interface{}
 
@@ -294,8 +296,8 @@ func ReloadCard(cardFunc FunCard) map[string]interface{} {
 		log.Println("Parse error=>", err)
 	}
 	if data["status"] == "success" {
-
-		user.RemoveAmountUser(app, cardFunc.UserId, float64(_amount))
+		log.Println("OnResponse=> ", data)
+		user.RemoveAmountUser(app, cardFunc.UserId, float64(_amountConv))
 	}
 	fmt.Println(data)
 	return data
