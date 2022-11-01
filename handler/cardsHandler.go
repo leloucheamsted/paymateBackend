@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"paymate/cards"
+	"paymate/user"
 
 	firebase "firebase.google.com/go"
 	"github.com/gin-gonic/gin"
@@ -78,4 +79,16 @@ func CardDetails(c *gin.Context) {
 	} else {
 		c.JSON(401, gin.H{"status": "failed", "data": data})
 	}
+}
+func GetUserCards(c *gin.Context) {
+	ctx := context.Background()
+	opt := option.WithCredentialsFile(credFileName)
+	var err error
+	app, err = firebase.NewApp(ctx, nil, opt)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	Id := c.Param("id")
+
+	user.GetCardsUser(app, c, Id)
 }

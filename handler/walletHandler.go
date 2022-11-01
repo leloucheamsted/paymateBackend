@@ -84,7 +84,7 @@ func ConfirmReload(c *gin.Context) {
 		log.Fatalln(err)
 	}
 	transId := c.Param("id")
-	c.JSON(200, gin.H{"data": PaymentStatusFunc(transId)})
+	c.JSON(200, PaymentStatusFunc(transId))
 }
 
 func GetLatestTransaction(c *gin.Context) {

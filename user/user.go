@@ -65,20 +65,17 @@ func GetUser(app *firebase.App, c *gin.Context, id string) {
 		log.Println(err)
 	}
 	log.Println(userData.Data())
-	user.FirstName = userData.Data()["firstName"].(string)
-	user.LastName = userData.Data()["lastName"].(string)
-	user.Amount = int64(userData.Data()["amount"].(float64))
-	user.Phone = userData.Data()["phone"].(string)
-	//user["firstName"] = userData.Data()["firstName"]
-	//user["lastName"] = userData.Data()["lastName"]
-	//user["phone"] = userData.Data()["phone"]
+	//user.FirstName = userData.Data()["firstName"].(string)
+	//user.LastName = userData.Data()["lastName"].(string)
+	//user.Amount = int64(userData.Data()["amount"].(int64))
+	//user.Phone = userData.Data()["phone"].(string)
 	fmt.Printf("Document data: %#v\n", user)
 	if err != nil {
 		log.Println(err)
-		c.JSON(404, gin.H{"status": "failed", "message": err, "data": user})
+		c.JSON(202, gin.H{"status": "failed", "message": err, "data": userData.Data()})
 	}
 	log.Println(user)
-	c.JSON(200, user)
+	c.JSON(200, gin.H{"status": "success", "user": userData.Data()})
 
 }
 func UpdateUser(app *firebase.App, c *gin.Context, user Users) {
@@ -180,8 +177,9 @@ func GetLatestTransaction(app *firebase.App, c *gin.Context, Id string) {
 		log.Fatalln(err)
 	}
 	defer client.Close()
-	var transactions []map[string]interface{}
+	transactions := []map[string]interface{}{}
 	getTransactionLimit := client.Collection("Transactions").OrderBy("createAt", firestore.Desc).Where("userId", "==", Id).Limit(15).Documents(ctx)
+	fmt.Println(getTransactionLimit.GetAll())
 	if getTransactionLimit != nil {
 
 		for {
@@ -190,18 +188,50 @@ func GetLatestTransaction(app *firebase.App, c *gin.Context, Id string) {
 				break
 			}
 			if err != nil {
-				log.Fatalf("Failed to iterate: %v", err)
+				//log.Fatalf("Failed to iterate: %v", err)
+				c.JSON(200, transactions)
+				return
+			} else {
+				transaction := doc.Data()
+				transactions = append(transactions, transaction)
+
 			}
-			transaction := doc.Data()
-			transactions = append(transactions, transaction)
 		}
-		c.JSON(200, gin.H{"message": "List of first transactions return succesfully", "status": "success", "transactions": transactions})
+		c.JSON(200, transactions)
+
 	} else {
-		c.JSON(200, gin.H{"message": "User don't have transactions", "status": "success", "transactions": transactions})
+		c.JSON(200, transactions)
 
 	}
 
 }
+func GetCardsUser(app *firebase.App, c *gin.Context, Id string) {
+	ctx := context.Background()
+	client, err := app.Firestore(ctx)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	defer client.Close()
+	var cards []map[string]interface{}
+	getAllCards := client.Collection("Cards").Where("data.meta_data.user_Id", "==", Id).Documents(ctx)
+	if getAllCards != nil {
+		for {
+			doc, err := getAllCards.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				log.Fatalln("Failed to iterate: #{err}")
+			}
+			card := doc.Data()
+			cards = append(cards, card)
+		}
+		c.JSON(200, gin.H{"message": "List of  cards return succesfully", "status": "success", "cards": cards})
+	} else {
+		c.JSON(200, gin.H{"message": "User don't have transactions", "status": "success", "cards": cards})
+	}
+}
+
 func GetAllTransaction(app *firebase.App, c *gin.Context, Id string) {
 	ctx := context.Background()
 	client, err := app.Firestore(ctx)

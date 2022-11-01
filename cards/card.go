@@ -302,3 +302,4 @@ func ReloadCard(cardFunc FunCard) map[string]interface{} {
 	fmt.Println(data)
 	return data
 }
+func GetCardsUser() {}
