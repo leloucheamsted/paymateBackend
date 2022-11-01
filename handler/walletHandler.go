@@ -17,7 +17,7 @@ var (
 	url             = "https://sandbox.fapshi.com"
 	apikey          = "FAK_TEST_c056736b7a6e7ef836b2"
 	apiuser         = "a264a3b6-58b7-45ff-ba51-35cda4f24623"
-	alphabet []rune = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890")
+	alphabet []rune = []rune("abcdefghijklmnopqrstuvwxyz1234567890")
 )
 
 type Payment struct {
@@ -55,7 +55,7 @@ func ReloadWallet(c *gin.Context) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	ExtId := RandomString(20, alphabet)
+	ExtId := RandomString(18, alphabet)
 	_amount, err := strconv.ParseInt(c.PostForm("amount"), 10, 64)
 	if err != nil {
 		log.Println(err)

@@ -18,7 +18,7 @@ func PaymentFunc(payment Payment) map[string]interface{} {
 	method := "POST"
 	var data map[string]interface{}
 
-	userData := "{\n		\"amount\":      " + strconv.Itoa(payment.Amount) + " ,\n		\"email\":      \"" + payment.Email + "\",\n		\"externalId\": \"" + payment.ExternalId + "\",\n		\"userId\":     \"" + payment.UserId + "\",\n		\"message\":    \"" + payment.Message + "\",\n		\"phone\":      \"" + payment.Phone + "\"\n\n}"
+	userData := "{\n\"amount\":" + strconv.Itoa(payment.Amount) + ",\n\"email\": \"" + payment.Email + "\",\n\"externalId\":\"" + payment.ExternalId + "\",\n\"userId\":\"" + payment.UserId + "\",\n\"message\":\"" + payment.Message + "\",\n\"phone\":\"" + payment.Phone + "\"\n\n}"
 
 	fmt.Println(userData)
 

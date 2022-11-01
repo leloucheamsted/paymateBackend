@@ -213,7 +213,7 @@ func GetCardsUser(app *firebase.App, c *gin.Context, Id string) {
 	}
 	defer client.Close()
 	var cards []map[string]interface{}
-	getAllCards := client.Collection("Cards").Where("data.meta_data.user_Id", "==", Id).Documents(ctx)
+	getAllCards := client.Collection("Cards").Where("data.meta_data.user_id", "==", Id).Documents(ctx)
 	if getAllCards != nil {
 		for {
 			doc, err := getAllCards.Next()
